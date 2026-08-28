@@ -1,0 +1,423 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Status {
+  PENDING
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum MfaStatus {
+  PENDING
+  ENABLED
+  DISABLED
+}
+
+model Token {
+  id        BigInt   @id @default(autoincrement())
+  userId    String?
+  userEmail String?  @map("user_email")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+
+  @@map("tokens")
+}
+
+model User {
+  id                  BigInt          @id @default(autoincrement())
+  userId              String          @unique @map("user_id")
+  name                String
+  email               String          @unique
+  password            String?
+  isEmailVerified     Boolean         @map("email_verified") @default(false)
+  isOauthUser         Boolean         @map("is_oauth_user") @default(false)
+  status              Status          @default(PENDING)
+  role                Role            @default(USER)
+  mfaEnabled          Boolean         @map("mfa_enabled") @default(false)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  metadata            Json?
+  profile             UserProfile?
+  oauthDetails        OAuthDetails?
+  sessions            Session[]
+  userMfa             UserMfa?
+
+  @@map("users")
+  organizationMembers OrganizationMember[]
+  organizationInvitations OrganizationInvitation[] @relation("SentInvitations")
+}
+
+model UserProfile {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @unique
+  bio       String?
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addresses Address[]
+  metadata Json?
+
+  @@map("user_profiles")
+}
+
+enum AddressType {
+  CURRENT
+  PERMANENT
+}
+
+model Address {
+  id        BigInt      @id @default(autoincrement())
+  type      AddressType @default(CURRENT)
+  profileId BigInt
+  addressId String      @map("address_id") @unique
+
+  street    String?     @default("")
+  city      String?     @default("")
+  state     String      @default("")
+  zipCode   String      @map("zip_code") @default("")
+  country   String      @default("")
+
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  profile UserProfile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, type])
+  @@map("addresses")
+}
+
+model OAuthDetails {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @unique
+  provider  String
+  providerId String  @map("provider_id")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  metadata Json?
+
+  @@map("oauth_details")
+}
+
+model Session {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model UserMfa {
+  id                  BigInt   @id @default(autoincrement())
+  userId              BigInt   @unique
+
+  secret              String?  @map("secret")
+  lastMfaTimeStep     BigInt?  @map("last_mfa_time_step")
+
+  status              MfaStatus   @default(PENDING)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_mfa")
+}
+
+enum OrganizationStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum PaymentType {
+  FREE
+  PRO
+  SCALE
+  ENTERPRISE
+}
+
+enum OrganizationPaymentStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Organization {
+  id                  BigInt                    @id @default(autoincrement())
+  name                String                    @unique
+  organizationId      String                    @unique @map("organization_id")
+  slug                String                    @unique
+  status              OrganizationStatus        @default(PENDING)
+  contactEmail        String?                   @map("contact_email")
+  completedSteps      Int                       @map("completed_steps") @default(0)
+  PaymentType         PaymentType               @map("payment_type") @default(FREE)
+  paymentStatus       OrganizationPaymentStatus @map("payment_status") @default(PENDING)
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  metadata            Json?
+
+  details OrganizationDetails?
+  members OrganizationMember[]
+
+  @@map("organizations")
+  organizationInvitations OrganizationInvitation[]
+  apiKeys ApiKey[]
+  destinations Destination[]
+  events Event[]
+  deliveries Delivery[]
+}
+
+model OrganizationDetails {
+  id                  BigInt                @id @default(autoincrement())
+  organizationId      BigInt                @unique
+  registered_by       BigInt                @map("registered_by")
+  description         String?
+  logoUrl             String?               @map("logo_url")
+  address             String?
+  phoneNumber         String?               @map("phone_number")
+  website             String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  metadata            Json?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_details")
+}
+
+model OrganizationMember {
+  id                  BigInt                @id @default(autoincrement())
+  organizationId      BigInt
+  userId              BigInt
+  role                OrganizationRole      @default(MEMBER)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user               User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("organization_members")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+model OrganizationInvitation {
+  id             BigInt                 @id @default(autoincrement())
+  organizationId BigInt                 @map("organization_id")
+  invitedBy      BigInt                 @map("invited_by")
+  email          String             
+  role           OrganizationRole       @default(MEMBER)
+  token          String                 @unique
+  status         InvitationStatus       @default(PENDING)
+  expiresAt      DateTime               @map("expires_at")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @default(now()) @updatedAt @map("updated_at")
+  inviter        User                   @relation("SentInvitations", fields: [invitedBy], references: [id])
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_invitations")
+}
+
+model ApiKey {
+  id                BigInt                 @id @default(autoincrement())
+  organizationId    BigInt                 @map("organization_id")
+  apiKeyId          String                 @unique @map("api_key_id")
+  name              String
+  createdBy         BigInt                 @map("created_by")
+  prefix            String                 
+  keyHash           String                 @unique @map("key_hash")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  lastUsedAt        DateTime?              @map("last_used_at")
+  scopes            String[]               @default([]) @map("scopes")
+  revokedAt         DateTime?              @map("revoked_at")
+  expiresAt         DateTime?              @map("expires_at")
+
+  organization      Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+ 
+  @@map("api_keys")
+  @@index([organizationId])
+}
+
+enum DestinationStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+
+model Destination {
+  id                           BigInt                 @id @default(autoincrement())
+  destinationId                String                 @unique @map("destination_id")
+  organizationId               BigInt                 @map("organization_id")
+  destinationName              String                 @map("destination_name")
+  url                          String
+  encryptedSigningSecret       String                 @map("encrypted_signing_secret")
+  status                       DestinationStatus      @default(ACTIVE)
+  pauseReason                  String?                @map("pause_reason")
+  consecutiveFailures          Int                    @default(0) @map("consecutive_failures")
+  createdBy                    BigInt                 @map("created_by")
+
+  lastSuccessAt                DateTime?              @map("last_success_at")
+  lastFailureAt                DateTime?              @map("last_failure_at")
+
+  createdAt                    DateTime               @default(now()) @map("created_at")
+  updatedAt                    DateTime               @updatedAt @map("updated_at")
+  
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("destinations")
+  deliveries Delivery[]
+}
+
+model Event {
+  id                        BigInt                 @id @default(autoincrement())
+  eventId                   String                 @unique @map("event_id")
+  organizationId            BigInt                 @map("organization_id")
+  eventType                 String                 @map("event_type")
+  payload                   Json                   
+  createdAt                 DateTime               @default(now()) @map("created_at")
+
+  organization              Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries                Delivery[]
+
+  @@map("events")
+  @@index([organizationId])
+  @@index([createdAt])
+  @@index([organizationId, createdAt(sort: Desc)])
+}
+
+enum DeliveryStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  PAUSED
+}
+
+model Delivery {
+  id                        BigInt                 @id @default(autoincrement())
+  organizationId            BigInt                 @map("organization_id")
+  eventId                   BigInt                 @map("event_id")
+  destinationId             BigInt                 @map("destination_id")
+  status                    DeliveryStatus         @default(PENDING)
+  attempts                  Int                    @default(0)
+  nextRetryAt               DateTime?              @map("next_retry_at")
+  lastResponseStatusCode    Int?                   @map("last_response_status_code")
+  lastErrorMessage          String?                @map("last_error_message")
+  completedAt               DateTime?              @map("completed_at")
+  createdAt                 DateTime               @default(now()) @map("created_at")
+  updatedAt                 DateTime               @updatedAt @map("updated_at")
+
+  organization              Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event                     Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  destination               Destination            @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+
+  @@map("deliveries")
+  @@index([organizationId])
+  @@index([nextRetryAt, status])
+  @@index([eventId, destinationId, status])
+  @@index([organizationId, status, nextRetryAt])
+  @@index([organizationId, createdAt(sort: Desc)])
+}
+
+// ============= RATE LIMITER MODELS =============
+
+enum RateLimitStrategy {
+  SLIDING_WINDOW
+  FIXED_WINDOW
+  TOKEN_BUCKET
+}
+
+enum IdentifierType {
+  IP
+  USER_ID
+  API_KEY
+}
+
+model RateLimitConfig {
+  id            String             @id @default(uuid())
+  name          String
+  description   String?
+  strategy      RateLimitStrategy
+  identifierType IdentifierType
+  limit         Int
+  windowMs      Int                @map("window_ms")
+  burst         Int?
+  refillRate    Float?             @map("refill_rate")
+  routePattern  String?            @map("route_pattern")
+  enabled       Boolean            @default(true)
+  priority      Int                @default(0)
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  auditLogs     AuditLog[]
+
+  @@index([enabled, priority(sort: Desc)])
+  @@index([routePattern])
+  @@index([identifierType])
+  @@map("rate_limit_configs")
+}
+
+model AuditLog {
+  id            String            @id @default(uuid())
+  identifier    String
+  identifierType IdentifierType    @map("identifier_type")
+  route         String
+  method        String
+  allowed       Boolean
+  limitCount    Int                @map("limit_count")
+  remaining     Int
+  configId      String?           @map("config_id")
+  ip            String
+  userAgent     String?           @map("user_agent")
+  timestamp     DateTime          @default(now())
+  metadata      Json?
+
+  config        RateLimitConfig?  @relation(fields: [configId], references: [id], onDelete: SetNull)
+
+  @@index([identifier])
+  @@index([timestamp(sort: Desc)])
+  @@index([configId])
+  @@index([route, method])
+  @@index([allowed])
+  @@map("audit_logs")
+}
+

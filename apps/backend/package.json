@@ -1,0 +1,52 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon",
+    "dev:delivery": "tsx watch src/workers/deliveryWorker.ts",
+    "dev:workers": "tsx watch src/workers.ts",
+    "dev:all": "concurrently \"pnpm dev\" \"pnpm dev:workers\"",
+    "load:k6:steady": "k6 run ../../tools/load/k6/ingest-steady.js",
+    "load:k6:overlimit": "k6 run ../../tools/load/k6/ingest-overlimit.js",
+    "load:autocannon": "node ../../tools/load/autocannon/ingest.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@repo/db": "workspace:*",
+    "@repo/rate-limiter": "workspace:*",
+    "@repo/redis": "workspace:*",
+    "@types/nodemailer": "^8.0.1",
+    "bcrypt": "^6.0.0",
+    "bullmq": "^5.7.0",
+    "cloudinary": "^2.10.1",
+    "concurrently": "^10.0.5",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.2.0",
+    "nodemailer": "^9.0.5",
+    "opossum": "^8.1.4",
+    "otplib": "^13.5.0",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.35.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/autocannon": "^7.12.7",
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.13.3",
+    "@types/qrcode": "^1.5.6",
+    "autocannon": "^8.0.0",
+    "nodemon": "^3.1.14",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  }
+}

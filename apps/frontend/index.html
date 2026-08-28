@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary SEO -->
+    <title>Relayo — Reliable Webhook Delivery Platform</title>
+    <meta
+      name="description"
+      content="Relayo is a reliable webhook delivery platform. Guaranteed at-least-once delivery with automatic retries, exponential backoff, HMAC request signing, circuit breakers, dead-lettering and full delivery logs."
+    />
+    <meta
+      name="keywords"
+      content="webhooks, webhook delivery, webhook retries, HMAC signing, circuit breaker, dead letter queue, webhook reliability, event delivery, API infrastructure, Relayo"
+    />
+    <meta name="author" content="Relayo" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://relayo.app/" />
+
+    <!-- Theme color -->
+    <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#05070f" media="(prefers-color-scheme: dark)" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Relayo" />
+    <meta property="og:title" content="Relayo — Reliable Webhook Delivery Platform" />
+    <meta
+      property="og:description"
+      content="Guaranteed webhook delivery with retries, backoff, HMAC signing and circuit breakers. Full visibility into every delivery attempt."
+    />
+    <meta property="og:url" content="https://relayo.app/" />
+    <meta property="og:image" content="https://relayo.app/og-image.svg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Relayo — reliable webhook delivery platform" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Relayo — Reliable Webhook Delivery Platform" />
+    <meta
+      name="twitter:description"
+      content="Guaranteed webhook delivery with retries, backoff, HMAC signing and circuit breakers."
+    />
+    <meta name="twitter:image" content="https://relayo.app/og-image.svg" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+    />
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "name": "Relayo",
+            "url": "https://relayo.app/",
+            "description": "Reliable webhook delivery platform with retries, HMAC signing, circuit breakers and delivery logs.",
+            "publisher": {
+              "@type": "Organization",
+              "name": "Relayo",
+              "url": "https://relayo.app/"
+            }
+          },
+          {
+            "@type": "SoftwareApplication",
+            "name": "Relayo",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Web",
+            "description": "A courier service for HTTP webhook events: durable queueing, automatic retries with exponential backoff and jitter, signed payloads, per-destination circuit breaking and a real-time dashboard.",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            }
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>Relayo requires JavaScript to run. Please enable it in your browser.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
