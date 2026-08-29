@@ -4,12 +4,14 @@ import {
   generateDestinationSigningSecret,
 } from "../utils/helper";
 import { encrypt } from "../utils/crypto.util";
+import { AppError } from "../errors/AppError";
+
+const FREE_PLAN_DESTINATION_LIMIT = 2;
 
 async function resolveOrg(identifier: string) {
-  console.log("resolveOrg called with identifier:", identifier);
   const org = await prisma.organization.findFirst({
     where: { OR: [{ slug: identifier }, { organizationId: identifier }] },
-    select: { id: true },
+    select: { id: true, PaymentType: true },
   });
   if (!org) throw new Error("Organization not found");
   return org;
@@ -52,6 +54,19 @@ export async function createDestination(
   const destinationId = generateDestinationId();
   const signingSecret = generateDestinationSigningSecret();
   const encryptedSigningSecret = encrypt(signingSecret);
+
+  if (org.PaymentType === "FREE") {
+    const destinationCount = await prisma.destination.count({
+      where: { organizationId: org.id },
+    });
+    if (destinationCount >= FREE_PLAN_DESTINATION_LIMIT) {
+      throw new AppError(
+        `Free plan allows up to ${FREE_PLAN_DESTINATION_LIMIT} destinations. Pay once for a 30-day period to add more.`,
+        402,
+        "PLAN_DESTINATION_LIMIT",
+      );
+    }
+  }
 
   const destination = await prisma.destination.create({
     data: {

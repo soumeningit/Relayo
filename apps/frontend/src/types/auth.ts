@@ -3,12 +3,15 @@ export interface RegisterRequest {
   email: string;
   password: string;
   confirmPassword: string;
+  /** Present when completing an invited signup — activates the pre-created account. */
+  registrationToken?: string;
 }
 
 export interface SignupResponse {
   success: boolean;
   message: string;
-  verificationLink: string;
+  /** Absent for invited signups — the account is already verified. */
+  verificationLink: string | null;
 }
 
 export interface VerifyEmailResponse {

@@ -1,4 +1,4 @@
-import { MfaStatus, prisma, Status } from "@repo/db";
+import { MfaStatus, Prisma, prisma, Status } from "@repo/db";
 import dotenv from "dotenv";
 dotenv.config();
 import bcrypt from "bcrypt";
@@ -19,6 +19,7 @@ import {
   generateJwtToken,
   verifyJwtToken,
 } from "../utils/helper";
+import { AppError } from "../errors/AppError";
 
 interface CreateUserReequest {
   name: string;
@@ -26,6 +27,7 @@ interface CreateUserReequest {
   password: string;
   confirmPassword: string;
   mfaEnabled?: boolean;
+  registrationToken?: string;
 }
 
 interface ResetRequest {
@@ -35,6 +37,126 @@ interface ResetRequest {
 }
 
 async function createUser(request: CreateUserReequest) {
+  if (request.password.trim() !== request.confirmPassword.trim()) {
+    throw new Error("Passwords do not match");
+  }
+
+  const hashedPassword = await bcrypt.hash(request.password, 10);
+
+  // Invite onboarding: the invitee's account was pre-created (unverified and
+  // without a password) when the invitation was accepted. The registration
+  // token identifies that account, so the regular "user already exists"
+  // guards must not apply here.
+  if (request.registrationToken) {
+    const token = await prisma.token.findUnique({
+      where: { token: request.registrationToken },
+    });
+
+    if (!token) {
+      throw new Error("Invalid registration token");
+    }
+
+    if (token.expiresAt < new Date()) {
+      throw new Error("Registration token has expired");
+    }
+
+    const verificationRequired =
+      token?.userEmail &&
+      token.userEmail.toLowerCase() !== request.email.trim().toLowerCase();
+
+    const conditions: Prisma.UserWhereInput[] = [];
+
+    if (token?.userEmail) {
+      conditions.push({ email: token.userEmail });
+    }
+
+    if (token?.userId) {
+      conditions.push({ userId: token.userId });
+    }
+
+    if (conditions.length === 0) {
+      throw new Error("Either userEmail or userId is required");
+    }
+
+    if (!verificationRequired) {
+      await prisma.$transaction(async (tx) => {
+        const result = await tx.user.updateMany({
+          where: {
+            OR: conditions,
+          },
+          data: {
+            name: request.name,
+            password: hashedPassword,
+            isEmailVerified: true,
+            status: Status.ACTIVE,
+          },
+        });
+
+        if (result.count === 0) {
+          throw new Error("User not found");
+        }
+
+        await tx.token.delete({
+          where: {
+            token: request.registrationToken,
+          },
+        });
+      });
+
+      return {
+        success: true,
+        message: "Account created successfully. You can sign in.",
+      };
+    }
+
+    // The invitee signed up with a different email than the invite. Complete
+    // the account but keep it PENDING and require email verification.
+    const response = await prisma.$transaction(async (tx) => {
+      const result = await tx.user.updateMany({
+        where: {
+          OR: conditions,
+        },
+        data: {
+          name: request.name,
+          password: hashedPassword,
+          isEmailVerified: false,
+          status: Status.PENDING,
+        },
+      });
+      return result;
+    });
+    if (response.count === 0) {
+      throw new Error("User not found");
+    }
+
+    await prisma.token.delete({
+      where: {
+        token: request.registrationToken,
+      },
+    });
+
+    const payload = {
+      id: token.userId as string,
+      email: request.email,
+    };
+
+    try {
+      const verificationResult = await handleSendVerificationEmail(
+        request.email,
+        request.name,
+        payload,
+        true,
+      );
+      return verificationResult;
+    } catch (error: AppError | any) {
+      throw new AppError(
+        "Failed to send verification email",
+        500,
+        error.verificationLink,
+      );
+    }
+  }
+
   const user = await prisma.user.findUnique({
     where: {
       email: request.email,
@@ -48,12 +170,6 @@ async function createUser(request: CreateUserReequest) {
   if (user) {
     throw new Error("User already exists");
   }
-
-  if (request.password.trim() !== request.confirmPassword.trim()) {
-    throw new Error("Passwords do not match");
-  }
-
-  const hashedPassword = await bcrypt.hash(request.password, 10);
 
   const userId = createUserId();
 
@@ -83,21 +199,7 @@ async function createUser(request: CreateUserReequest) {
   }
 
   if (request.mfaEnabled) {
-    const mfaSecret = generateMfaSecret();
-
-    const encryptedMfaSecret = encrypt(mfaSecret);
-
-    const mfaDetails = await prisma.userMfa.create({
-      data: {
-        userId: newUser.id,
-        secret: encryptedMfaSecret,
-        status: "PENDING",
-      },
-    });
-
-    if (!mfaDetails) {
-      throw new Error("Failed to create MFA details");
-    }
+    await userMfaEnabledAtRegistration(Number(newUser.id));
   }
 
   const payload = {
@@ -105,25 +207,75 @@ async function createUser(request: CreateUserReequest) {
     email: newUser.email,
   };
 
-  const token = generateJwtToken(payload, "1h");
+  try {
+    const verificationResult = await handleSendVerificationEmail(
+      newUser.email,
+      newUser.name,
+      payload,
+      false,
+    );
 
-  const verificationLink = `${process.env.CLIENT_URL}/verify?token=${token}`;
-
-  await sendVerificationEmail(
-    request.email,
-    request.name,
-    verificationLink,
-    "60 minutes",
-  );
-
-  return {
-    success: true,
-    message: "User created successfully. Please verify your email.",
-    verificationLink,
-  };
+    return {
+      success: true,
+      message: "User created successfully. Please verify your email.",
+      verificationLink: verificationResult.verificationLink,
+    };
+  } catch (error: AppError | any) {
+    throw new AppError(
+      "Failed to send verification email",
+      500,
+      error.verificationLink,
+    );
+  }
 }
 
-async function verifyEmail(token: string) {
+async function userMfaEnabledAtRegistration(id: number) {
+  const mfaSecret = generateMfaSecret();
+
+  const encryptedMfaSecret = encrypt(mfaSecret);
+
+  const mfaDetails = await prisma.userMfa.create({
+    data: {
+      userId: id,
+      secret: encryptedMfaSecret,
+      status: "PENDING",
+    },
+  });
+
+  if (!mfaDetails) {
+    throw new Error("Failed to create MFA details");
+  }
+
+  return mfaDetails;
+}
+
+async function handleSendVerificationEmail(
+  email: string,
+  name: string,
+  payload: { id: string; email: string },
+  flag: boolean,
+): Promise<{ success: boolean; message: string; verificationLink: string }> {
+  const token = generateJwtToken(payload, "1h");
+
+  const verificationLink = `${process.env.CLIENT_URL}/verify?token=${token}&flag=${flag}`;
+  try {
+    await sendVerificationEmail(email, name, verificationLink, "60 minutes");
+
+    return {
+      success: true,
+      message: "Verification email sent successfully",
+      verificationLink,
+    };
+  } catch (error) {
+    throw new AppError(
+      "Failed to send verification email",
+      500,
+      verificationLink,
+    );
+  }
+}
+
+async function verifyEmail(token: string, flag: boolean) {
   const decoded = verifyJwtToken(token) as {
     id: string;
     email: string;
@@ -170,11 +322,46 @@ async function verifyEmail(token: string) {
     throw new Error("Failed to update user verification status");
   }
 
+  if (flag) {
+    const meta = user.metadata as {
+      organizationId: string;
+      role: string;
+    } | null;
+    if (!meta || !meta.organizationId || !meta.role) {
+      throw new Error("User metadata is missing for organization and role");
+    }
+
+    await prisma.organizationMember.create({
+      data: {
+        organizationId: Number(meta.organizationId),
+        userId: updatedUser.id,
+        role: mapMemberRoleToOrgRole(meta.role),
+      },
+    });
+  }
+
   return {
     requiresMfaSetup: user.mfaEnabled && !user.isEmailVerified,
     qrCode: qrCodeDataUrl,
     email: updatedUser.email,
   };
+}
+
+type OrgRole = "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
+
+function mapMemberRoleToOrgRole(role: string): OrgRole {
+  switch (role.trim().toLowerCase()) {
+    case "owner":
+      return "OWNER";
+    case "admin":
+      return "ADMIN";
+    case "member":
+      return "MEMBER";
+    case "viewer":
+      return "VIEWER";
+    default:
+      throw "VIEWER";
+  }
 }
 
 async function setupMfa(email: string, otp: string) {

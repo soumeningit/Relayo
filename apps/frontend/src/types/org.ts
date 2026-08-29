@@ -21,6 +21,13 @@ export interface SubmitPaymentRequest {
   planType: PaymentPlanType;
 }
 
+export interface PaymentOrder {
+  orderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+}
+
 export interface SubmitPaymentResponse {
   success: boolean;
   message: string;
@@ -32,6 +39,27 @@ export interface SubmitPaymentResponse {
     status: OrgSummary["status"];
     completedSteps: number;
     paymentStatus: OrganizationPaymentStatus;
+    currentPeriodEnd: string | null;
+    /** Present for paid plans — the Razorpay order to open in the checkout modal. */
+    order: PaymentOrder | null;
+  };
+}
+
+export interface VerifyPaymentRequest {
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+}
+
+export interface VerifyPaymentResponse {
+  success: boolean;
+  message: string;
+  data: {
+    captured: boolean;
+    paymentType: PaymentPlanType;
+    paymentStatus: OrganizationPaymentStatus;
+    currentPeriodEnd: string | null;
+    completedSteps: number;
   };
 }
 
@@ -59,6 +87,9 @@ export interface OrgFull {
   status: OrgSummary["status"];
   completedSteps: number;
   contactEmail: string | null;
+  paymentType: PaymentPlanType;
+  paymentStatus: OrganizationPaymentStatus;
+  currentPeriodEnd: string | null;
   createdAt: string;
   updatedAt: string;
   metadata?: Record<string, unknown> | null;
@@ -114,4 +145,69 @@ export interface SubmitOrgDetailsResponse {
     address: string | null;
     phone: string | null;
   };
+}
+
+export type MemberRole = "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
+
+export interface OrgMember {
+  /** Numeric membership id (serialized BigInt) */
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: MemberRole;
+  joinedAt: string;
+  lastActiveAt: string | null;
+}
+
+export type InvitationChannel = "EMAIL" | "APP_NOTIFICATION";
+export type InvitationStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "EXPIRED";
+
+export interface MemberInvitation {
+  id: string;
+  email: string;
+  name: string | null;
+  role: MemberRole;
+  token: string;
+  status: InvitationStatus;
+  isRegistered: boolean;
+  invitedAt: string;
+  respondedAt: string | null;
+  expiresAt: string;
+  invitedBy: string;
+}
+
+/** Derive the delivery channel from whether the invitee already has an account. */
+export function invitationChannel(
+  invite: Pick<MemberInvitation, "isRegistered">,
+): InvitationChannel {
+  return invite.isRegistered ? "APP_NOTIFICATION" : "EMAIL";
+}
+
+export interface InviteMemberPayload {
+  email: string;
+  role: Exclude<MemberRole, "OWNER">;
+}
+
+export interface InviteMemberResponse {
+  success: boolean;
+  message: string;
+  isRegistered: boolean;
+}
+
+export interface InviteeLookup {
+  isRegistered: boolean;
+  name: string | null;
+}
+
+export interface InvitationDetails {
+  isValid: boolean;
+  reason?: string;
+  email?: string;
+  name?: string | null;
+  isRegistered?: boolean;
+  orgName?: string;
+  role?: MemberRole;
+  inviterName?: string;
+  expiresAt?: string;
 }

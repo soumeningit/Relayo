@@ -476,9 +476,17 @@ function OrganizationPage() {
       {/* ---------- Members ---------- */}
       {org.members && org.members.length > 0 && (
         <>
-          <h2 className="mb-3 mt-8 font-display text-base font-semibold text-foreground">
-            Members ({org.members.length})
-          </h2>
+          <div className="mb-3 mt-8 flex items-center justify-between">
+            <h2 className="font-display text-base font-semibold text-foreground">
+              Members ({org.members.length})
+            </h2>
+            <Link
+              to="/dashboard/members"
+              className="text-xs font-medium text-indigo-500 hover:underline dark:text-indigo-300"
+            >
+              Manage members →
+            </Link>
+          </div>
           <TableWrapper>
             <THead>
               <TR>

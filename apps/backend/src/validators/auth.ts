@@ -24,6 +24,12 @@ export const signupSchema = z.object({
         .min(6, {
           error: "Confirm password must be at least 6 characters",
         }),
+
+      registrationToken: z
+        .string({ error: "Registration token is required" })
+        .trim()
+        .min(1, { error: "Registration token cannot be empty" })
+        .optional(),
     })
     .refine((data) => data.password === data.confirmPassword, {
       error: "Passwords do not match",

@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { FiArrowLeft, FiCheckCircle, FiMail } from "react-icons/fi";
 import { AuthLayout } from "../../components/layout/AuthLayout";
 import { Button } from "../../components/ui/Button";
@@ -29,9 +29,13 @@ function SignupPage() {
       "Sign up for Relayo and start delivering webhooks with guaranteed retries, HMAC signing and full delivery visibility.",
   });
 
+const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("inviteToken");
+  const invitedEmail = searchParams.get("email");
+
   const [form, setForm] = useState({
     name: "",
-    email: "",
+    email: invitedEmail ?? "",
     password: "",
     confirmPassword: "",
   });
@@ -39,7 +43,10 @@ function SignupPage() {
   const [verificationLink, setVerificationLink] = useState<string | null>(
     null,
   );
+  const [createdMessage, setCreatedMessage] = useState<string | null>(null);
   const { isLoading, run } = useApiCall();
+
+  const isInviteSignup = Boolean(inviteToken);
 
   const setField =
     (field: keyof typeof form) => (event: ChangeEvent<HTMLInputElement>) =>
@@ -63,11 +70,50 @@ function SignupPage() {
     }
     setErrors({});
 
-    const response = await run(() => registerUser(form));
+    const response = await run(() =>
+      registerUser({
+        ...form,
+        registrationToken: inviteToken ?? undefined,
+      }),
+    );
     if (response) {
-      setVerificationLink(response.verificationLink);
+      if (response.verificationLink) {
+        setVerificationLink(response.verificationLink);
+      } else {
+        setCreatedMessage(
+          response.message ||
+            "Account created successfully. You can sign in now.",
+        );
+      }
     }
   };
+
+  if (createdMessage) {
+    return (
+      <AuthLayout
+        title="Account created"
+        subtitle="Your invitation is complete — sign in to get started."
+      >
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.06] p-6 text-center">
+          <FiCheckCircle
+            className="mx-auto text-emerald-500"
+            size={44}
+            aria-hidden="true"
+          />
+          <p className="mt-4 text-sm font-medium text-foreground">
+            {createdMessage}
+          </p>
+        </div>
+
+        <Link
+          to="/signin"
+          className={buttonClasses("outline", "md", true) + " mt-5"}
+        >
+          Back to sign in
+        </Link>
+      </AuthLayout>
+    );
+  }
 
   if (verificationLink) {
     return (
@@ -112,12 +158,25 @@ function SignupPage() {
     );
   }
 
-  return (
+return (
     <AuthLayout
       title="Create your Relayo account"
-      subtitle="Set up a tenant, register destinations and deliver your first webhook in minutes."
+      subtitle={
+        isInviteSignup
+          ? "You've been invited to an organization — finish signing up to join it."
+          : "Set up a tenant, register destinations and deliver your first webhook in minutes."
+      }
     >
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        {isInviteSignup && invitedEmail && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-indigo-500/25 bg-indigo-500/[0.06] px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+            <FiMail className="mt-0.5 shrink-0 text-indigo-500" aria-hidden="true" />
+            <span>
+              Invited as <code className="font-mono">{invitedEmail}</code> —
+              your account will activate once you create it.
+            </span>
+          </div>
+        )}
         <Input
           label="Full name"
           type="text"

@@ -23,6 +23,9 @@ apps/test_webhook
 scripts
 apps/backend/scripts
 
+# Razorpay scratch reference project (sample modal/orders code)
+apps/backend/razorpay
+
 # AI-assistant scratch docs (internal only)
 packages/database/.agents
 packages/database/.claude

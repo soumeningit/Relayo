@@ -12,6 +12,7 @@ import {
   FiMapPin,
   FiSettings,
   FiUser,
+  FiUsers,
   FiX,
 } from "react-icons/fi";
 
@@ -22,6 +23,7 @@ const items = [
   { to: "/dashboard/deliveries", label: "Deliveries", icon: FiFileText },
   { to: "/dashboard/api-keys", label: "API Keys", icon: FiKey },
   { to: "/dashboard/organization", label: "Organization", icon: FiBriefcase },
+  { to: "/dashboard/members", label: "Members", icon: FiUsers },
   {
     to: "/dashboard/failed-deliveries",
     label: "Failed Deliveries",

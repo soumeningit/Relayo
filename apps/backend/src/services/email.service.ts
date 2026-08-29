@@ -105,7 +105,7 @@ export async function sendInvitationEmail(
     await transporter.sendMail({
       from: MAIL_FROM,
       to,
-      subject: `Invitation to join ${orgName} on CoBoard`,
+      subject: `Invitation to join ${orgName} on Relayo`,
       html,
     });
     console.log(

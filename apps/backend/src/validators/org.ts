@@ -90,9 +90,87 @@ export const submitPaymentDetailsSchema = z.object({
   }),
 });
 
+export const verifyPaymentSchema = z.object({
+  params: z.object({
+    identifier: z.string().trim().min(1).max(320),
+  }),
+  body: z.object({
+    razorpayOrderId: z.string().trim().min(1),
+    razorpayPaymentId: z.string().trim().min(1),
+    razorpaySignature: z.string().trim().min(1),
+  }),
+});
+
 export const deliveryDetailsSchema = z.object({
   params: z.object({
     identifier: z.string().trim().min(1).max(320),
+  }),
+});
+
+export const inviteMemberSchema = z.object({
+  params: z.object({
+    identifier: z.string().trim().min(1).max(320),
+  }),
+  body: z.object({
+    email: z
+      .email({ error: "A valid email address is required" })
+      .max(255, { error: "Email is too long" }),
+    role: z.enum(["ADMIN", "MEMBER", "VIEWER"], {
+      error: "Invalid role",
+    }),
+  }),
+});
+
+export const lookupInviteeSchema = z.object({
+  params: z.object({
+    identifier: z.string().trim().min(1).max(320),
+  }),
+  body: z.object({
+    email: z
+      .email({ error: "A valid email address is required" })
+      .max(255, { error: "Email is too long" }),
+  }),
+});
+
+export const memberParamsSchema = z.object({
+  params: z.object({
+    identifier: z.string().trim().min(1).max(320),
+    memberId: z.coerce.number().int().positive(),
+  }),
+});
+
+export const updateMemberRoleSchema = z.object({
+  params: z.object({
+    identifier: z.string().trim().min(1).max(320),
+    memberId: z.coerce.number().int().positive(),
+  }),
+  body: z.object({
+    role: z.enum(["ADMIN", "MEMBER", "VIEWER"], { error: "Invalid role" }),
+  }),
+});
+
+export const inviteParamsSchema = z.object({
+  params: z.object({
+    identifier: z.string().trim().min(1).max(320),
+    inviteId: z.coerce.number().int().positive(),
+  }),
+});
+
+export const inviteTokenParamsSchema = z.object({
+  params: z.object({
+    token: z.string().trim().min(1, { error: "Invite token is required" }),
+  }),
+});
+
+export const respondInviteSchema = z.object({
+  body: z.object({
+    token: z
+      .string({ error: "Invite token is required" })
+      .trim()
+      .min(1, { error: "Invite token cannot be empty" }),
+    response: z.enum(["accept", "decline"], {
+      error: "Response must be accept or decline",
+    }),
   }),
 });
 

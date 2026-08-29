@@ -123,6 +123,8 @@ pnpm --filter frontend dev
 | `ENCRYPTION_KEY` | yes | AES-256-GCM key (exactly 64 hex chars) for signing secrets at rest |
 | `REDIS_HOST` / `REDIS_PORT` | yes | Rate limiter + BullMQ + secret cache |
 | `REDIS_PASSWORD` / `REDIS_TLS` | no | Auth / TLS-enabled Redis (Upstash) |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | no* | One-time 30-day plan payments (lazy: backend boots without them) |
+| `RAZORPAY_WEBHOOK_SECRET` | no | Signature verification for the `POST /webhooks/razorpay` reconciliation endpoint |
 | `MAIL_*` / `CLOUDINARY_*` / `CLIENT_URL` / `FRONTEND_URL` | no | Email, avatars, frontend links |
 | `RATE_LIMIT_ENABLED=false` | no | Run without throttling (baseline load tests) |
 
@@ -131,6 +133,7 @@ pnpm --filter frontend dev
 | Variable | Purpose |
 |---|---|
 | `VITE_BACKEND_BASE_URL` | Base URL of the API |
+| `VITE_RAZORPAY_KEY_ID` | Razorpay Key ID for the checkout modal (public) |
 | `VITE_ENCRYPT_STORAGE_KEY` | (Optional) at-rest localStorage obfuscation; ships to the browser |
 
 ---
@@ -166,6 +169,44 @@ Content-Type: application/json
   }
 }
 ```
+
+### Billing (one-time payments, no subscriptions)
+
+Every successful payment grants one 30-day period. When it lapses, the billing
+worker returns the organization to Free (data is kept) until you pay once again.
+
+```
+PATCH /api/v1/org/:identifier/payment
+Authorization: Bearer <jwt>
+{ "planType": "PRO" }              # FREE | PRO | SCALE
+```
+
+`FREE` activates immediately. Paid plans return a Razorpay order for the
+checkout modal:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "ORG-…",
+    "paymentType": "PRO",
+    "paymentStatus": "PENDING",
+    "currentPeriodEnd": null,
+    "order": { "orderId": "order_Nxxx", "amount": 99900, "currency": "INR", "keyId": "rzp_test_…" }
+  }
+}
+```
+
+After the customer pays in the modal, verify the payment server-side:
+
+```
+POST /api/v1/org/:identifier/payment/verify
+{ "razorpayOrderId": "order_Nxxx", "razorpayPaymentId": "pay_Nxxx", "razorpaySignature": "…" }
+```
+
+Razorpay also notifies your webhook (`POST /webhooks/razorpay`, HMAC verified
+against `RAZORPAY_WEBHOOK_SECRET`, mounted before the JSON body parser) so
+payments are reconciled even if the browser closes mid-flow.
 
 The event is persisted and queued for delivery cases in the same request path; you get an `eventId` (also usable as your idempotency key).
 

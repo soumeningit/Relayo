@@ -18,7 +18,10 @@ export async function register(
 
 export async function verify(req: Request, res: Response, next: NextFunction) {
   try {
-    const response = await authService.verifyEmail(req.body.token);
+    const response = await authService.verifyEmail(
+      req.body.token,
+      req.body.flag,
+    );
     return res.status(200).json(response);
   } catch (error: any) {
     next(error);

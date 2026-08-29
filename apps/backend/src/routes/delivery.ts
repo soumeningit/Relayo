@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authenticate } from "../middlewares/auth";
+import { requireActivePaidPlan } from "../middlewares/plan";
 import * as deliveryController from "../controllers/delivery.controller";
 import { validate } from "../middlewares/validate";
 import {
@@ -19,6 +20,7 @@ router.get(
 
 router.post(
   "/:identifier/deliveries/:deliveryId/replay",
+  requireActivePaidPlan,
   validate(replayDeliverySchema),
   deliveryController.replayDelivery,
 );

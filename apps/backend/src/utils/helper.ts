@@ -104,3 +104,11 @@ export function generateDestinationSigningSecret(): string {
 export function generateAddressId(type: string): string {
   return `ADDR-${type.slice(0, 2).toUpperCase()}-${crypto.randomBytes(16).toString("hex")}`;
 }
+
+export function generateInvitationToken(organizationId: string): string {
+  return `INV-${crypto.randomBytes(16).toString("hex")}-${organizationId.slice(0, 8)}-${Date.now()}`;
+}
+
+export function generateRegistrationInvitationToken(): string {
+  return `REG-INV-${crypto.randomBytes(16).toString("hex")}-${Date.now()}`;
+}

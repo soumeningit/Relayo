@@ -13,6 +13,7 @@ import {
   stopWorkers,
 } from "@repo/rate-limiter/workers";
 import "./workers/deliveryWorker";
+import { startBillingWorkers } from "./workers/billingWorker";
 
 async function start() {
   await connectRedis({
@@ -22,6 +23,7 @@ async function start() {
   });
 
   startWorkers();
+  startBillingWorkers();
 }
 
 async function shutdown() {

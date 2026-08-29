@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 
 import authRoute from "./routes/auth";
+import inviteRoute from "./routes/invite";
 import profileRoute from "./routes/profile";
 import orgRoute from "./routes/org";
 import apiKeyRoute from "./routes/apiKey";
@@ -12,6 +13,7 @@ import eventsRoute from "./routes/events";
 import deliveryRoute from "./routes/delivery";
 import dashboardRoute from "./routes/dashboard";
 import demoRoute from "./routes/demo";
+import webhookRoute from "./routes/webhook";
 
 import { errorHandler } from "./middlewares/errorHandler";
 import {
@@ -32,6 +34,10 @@ const RATE_LIMIT_ENABLED = process.env.RATE_LIMIT_ENABLED !== "false";
 
 const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
 
+// Webhooks need the raw request body for HMAC verification, so they are
+// mounted BEFORE the global express.json() parser.
+app.use("/webhooks", webhookRoute);
+
 app.use(express.json());
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 
@@ -41,11 +47,15 @@ app.use(
   rateLimit({
     auditDenied: true,
     skip: (req) =>
-      req.method === "OPTIONS" || req.path === "/health" || req.path === "/",
+      req.method === "OPTIONS" ||
+      req.path === "/health" ||
+      req.path === "/" ||
+      req.path.startsWith("/webhooks"),
   }),
 );
 
 app.use("/api/v1/auth", authRoute);
+app.use("/api/v1/invite", inviteRoute);
 app.use("/api/v1/profile", profileRoute);
 app.use("/api/v1/org/:identifier/keys", apiKeyRoute);
 app.use("/api/v1/org/:identifier/destinations", destinationRoute);

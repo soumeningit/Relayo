@@ -186,6 +186,7 @@ model Organization {
   completedSteps      Int                       @map("completed_steps") @default(0)
   PaymentType         PaymentType               @map("payment_type") @default(FREE)
   paymentStatus       OrganizationPaymentStatus @map("payment_status") @default(PENDING)
+  currentPeriodEnd    DateTime?                 @map("current_period_end")
   createdAt           DateTime                  @default(now())
   updatedAt           DateTime                  @updatedAt
   metadata            Json?
@@ -199,6 +200,7 @@ model Organization {
   destinations Destination[]
   events Event[]
   deliveries Delivery[]
+  payments Payment[]
 }
 
 model OrganizationDetails {
@@ -249,6 +251,7 @@ model OrganizationInvitation {
   role           OrganizationRole       @default(MEMBER)
   token          String                 @unique
   status         InvitationStatus       @default(PENDING)
+  valid          Boolean                @default(true)
   expiresAt      DateTime               @map("expires_at")
   createdAt      DateTime               @default(now()) @map("created_at")
   updatedAt      DateTime               @default(now()) @updatedAt @map("updated_at")
@@ -356,6 +359,249 @@ model Delivery {
   @@index([eventId, destinationId, status])
   @@index([organizationId, status, nextRetryAt])
   @@index([organizationId, createdAt(sort: Desc)])
+}
+
+enum PaymentStatus {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentAttemptStatus {
+  INITIATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+}
+
+enum PaymentEventType {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  PAYMENT_VERIFIED
+}
+
+enum PaymentApiOperation {
+  CREATE_ORDER
+  FETCH_ORDER
+  FETCH_PAYMENT
+  VERIFY_PAYMENT
+  CAPTURE_PAYMENT
+}
+
+enum PaymentApiResponseStatus {
+  SUCCESS
+  ERROR
+}
+
+model Payment {
+  id                 String @id @default(cuid())
+
+  organizationId     BigInt
+
+  // internal/client reference
+  referenceId        String?
+
+  // Razorpay identifiers
+  razorpayOrderId    String   @unique
+  razorpayPaymentId  String?  @unique
+
+  // Which tier this payment buys
+  planType           PaymentType?
+
+  amount             Int
+  currency           String @default("INR")
+
+  status             PaymentStatus @default(CREATED)
+
+  // Payment details
+  method             String?
+
+  email              String?
+  contact            String?
+
+  description        String?
+
+  // Razorpay payment fields
+  amountRefunded     Int @default(0)
+  amountTransferred  Int @default(0)
+
+  fee                Int?
+  tax                Int?
+
+  captured           Boolean @default(false)
+
+  // Razorpay-specific information
+  bank               String?
+  wallet             String?
+  vpa                String?
+
+  // Card information — never store PAN/CVV
+  cardId             String?
+  cardLast4          String?
+  cardNetwork        String?
+  cardType           String?
+  cardIssuer         String?
+
+  // Razorpay error information
+  errorCode          String?
+  errorDescription   String?
+  errorSource        String?
+  errorStep          String?
+  errorReason        String?
+
+  // Razorpay's notes
+  notes              Json?
+
+  // Complete latest Razorpay payment object
+  razorpayResponse   Json?
+
+  // Lifecycle timestamps
+  initiatedAt        DateTime @default(now())
+  authorizedAt       DateTime?
+  capturedAt         DateTime?
+  failedAt           DateTime?
+  refundedAt         DateTime?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization       Organization @relation(fields: [organizationId],references: [id], onDelete: Cascade)
+
+  attempts           PaymentAttempt[]
+  events             PaymentEvent[]
+  apiResponses       PaymentApiResponse[]
+
+  @@map("payments")
+  @@index([organizationId])
+  @@index([razorpayOrderId])
+  @@index([status])
+  @@index([organizationId, createdAt])
+  @@index([referenceId])
+}
+
+
+model PaymentAttempt {
+  id                 String @id @default(cuid())
+
+  paymentId          String
+
+  // Attempt number for this payment
+  attemptNumber      Int
+
+  status             PaymentAttemptStatus
+
+  razorpayPaymentId  String?
+
+  amount             Int
+  currency           String
+
+  method             String?
+
+  // Attempt-specific error
+  errorCode          String?
+  errorDescription   String?
+  errorSource        String?
+  errorStep          String?
+  errorReason        String?
+
+  // Raw response associated with this attempt
+  razorpayResponse   Json?
+
+  initiatedAt        DateTime @default(now())
+  authorizedAt       DateTime?
+  capturedAt         DateTime?
+  failedAt           DateTime?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  payment            Payment @relation(fields: [paymentId], references: [id],onDelete: Cascade)
+
+  @@map("payment_attempts")
+  @@unique([paymentId, attemptNumber])
+  @@index([paymentId])
+  @@index([razorpayPaymentId])
+  @@index([status])
+}
+
+
+model PaymentEvent {
+  id                 String @id @default(cuid())
+
+  paymentId          String
+
+  eventType          PaymentEventType
+
+  // Razorpay webhook event ID
+  razorpayEventId    String?
+
+  // Razorpay event timestamp
+  providerCreatedAt  DateTime?
+
+  // Snapshot of payment at this point in time
+  paymentSnapshot    Json?
+
+  // Complete webhook payload
+  webhookPayload     Json?
+
+  // Raw webhook body, required for audit/signature debugging
+  rawPayload         String?
+
+  // Razorpay webhook signature
+  webhookSignature   String?
+
+  signatureVerified  Boolean @default(false)
+
+  occurredAt         DateTime
+
+  createdAt          DateTime @default(now())
+
+  payment            Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("payment_events")
+  @@unique([razorpayEventId])
+  @@index([paymentId, occurredAt])
+  @@index([paymentId, eventType])
+  @@index([eventType])
+}
+
+
+model PaymentApiResponse {
+  id                 String @id @default(cuid())
+
+  paymentId          String
+
+  operation          PaymentApiOperation
+
+  status             PaymentApiResponseStatus
+
+  httpStatusCode     Int?
+
+  // Raw Razorpay response
+  responseBody       Json?
+
+  // Error information if Razorpay API failed
+  errorCode          String?
+  errorDescription   String?
+
+  requestedAt        DateTime @default(now())
+  completedAt        DateTime?
+
+  durationMs         Int?
+
+  payment            Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("payment_api_responses")
+  @@index([paymentId, requestedAt])
+  @@index([operation])
+  @@index([status])
 }
 
 // ============= RATE LIMITER MODELS =============

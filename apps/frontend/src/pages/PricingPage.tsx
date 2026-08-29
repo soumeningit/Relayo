@@ -1,27 +1,14 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
 import { FiCheck } from "react-icons/fi";
+import { Link } from "react-router-dom";
 import { buttonClasses } from "../components/ui/buttonStyles";
 import { Card } from "../components/ui/Card";
 import { CtaSection } from "../components/landing/CtaSection";
 import { FadeIn } from "../components/landing/FadeIn";
 import { PageHeader } from "../components/layout/MarketingLayout";
-import { plans, pricingFaqs, yearlyPrice, type Plan } from "../data/pricing";
+import { plans, pricingFaqs, type Plan } from "../data/pricing";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 
-type BillingCycle = "monthly" | "yearly";
-
-function PlanCard({
-  plan,
-  cycle,
-  onSelect,
-}: {
-  plan: Plan;
-  cycle: BillingCycle;
-  onSelect?: () => void;
-}) {
-  const isYearly = cycle === "yearly";
-
+function PlanCard({ plan }: { plan: Plan }) {
   return (
     <Card
       hover
@@ -43,17 +30,13 @@ function PlanCard({
 
       <p className="mt-5">
         <span className="font-display text-4xl font-bold text-foreground">
-          {isYearly ? yearlyPrice(plan) : plan.price}
+          {plan.price}
         </span>{" "}
-        <span className="text-sm text-muted-foreground">
-          {plan.price === "$0" ? "" : isYearly ? "/year" : plan.period}
-        </span>
+        <span className="text-sm text-muted-foreground">{plan.period}</span>
       </p>
-      {isYearly && plan.price !== "$0" && (
-        <p className="mt-1 text-xs font-medium text-emerald-500 dark:text-emerald-300">
-          2 months free vs monthly
-        </p>
-      )}
+      <p className="mt-1 text-xs font-medium text-emerald-500 dark:text-emerald-300">
+        One-time — no subscription, no auto-renewal
+      </p>
 
       <ul className="mt-6 flex-1 space-y-2.5">
         {plan.features.map((feature) => (
@@ -66,12 +49,6 @@ function PlanCard({
           </li>
         ))}
       </ul>
-
-      {onSelect ? (
-        <button onClick={onSelect} className="sr-only">
-          Select {plan.name}
-        </button>
-      ) : null}
     </Card>
   );
 }
@@ -80,10 +57,8 @@ function PricingPage() {
   useDocumentMeta({
     title: "Pricing",
     description:
-      "Simple, usage-based pricing for Relayo. Start free with 100k deliveries per month — upgrade when your webhooks go production.",
+      "Simple, one-time pricing for Relayo. Start free with 100k deliveries per month — pay once for 30 days when your webhooks go production.",
   });
-
-  const [cycle, setCycle] = useState<BillingCycle>("monthly");
 
   return (
     <>
@@ -95,42 +70,14 @@ function PricingPage() {
             <span className="text-gradient">with your events</span>
           </>
         }
-        subtitle="Start free. Pay only when reliability becomes revenue. No per-webhook surprise fees — ever."
-      >
-        {/* Billing toggle */}
-        <div
-          role="radiogroup"
-          aria-label="Billing cycle"
-          className="mx-auto inline-flex items-center rounded-full border border-border bg-card p-1"
-        >
-          {(["monthly", "yearly"] as const).map((option) => (
-            <button
-              key={option}
-              role="radio"
-              aria-checked={cycle === option}
-              onClick={() => setCycle(option)}
-              className={`rounded-full px-5 py-2 text-sm font-medium capitalize transition-all ${
-                cycle === option
-                  ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/25"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {option}
-              {option === "yearly" && (
-                <span className="ml-1.5 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-300">
-                  −17%
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </PageHeader>
+        subtitle="Start free. Pay once for 30 days when reliability becomes revenue. No per-webhook surprise fees — ever."
+      />
 
       <section className="px-5 pb-16 pt-2 sm:px-8" aria-label="Plans">
         <div className="mx-auto grid max-w-5xl gap-6 pt-4 md:grid-cols-3">
           {plans.map((plan, index) => (
             <FadeIn key={plan.id} delay={index * 0.08}>
-              <PlanCard plan={plan} cycle={cycle} />
+              <PlanCard plan={plan} />
             </FadeIn>
           ))}
         </div>
@@ -142,11 +89,11 @@ function PricingPage() {
               buttonClasses("primary", "lg") + " w-full text-white sm:w-auto"
             }
           >
-            Start free — no credit card
+            Start free
           </Link>
           <p className="mt-3 text-xs text-muted-foreground">
             All plans include retries, HMAC signing and the full dashboard.
-            Billing integration is coming soon — accounts start on Free.
+            Upgrade once and your period starts immediately.
           </p>
         </FadeIn>
       </section>

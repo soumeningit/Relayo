@@ -6,10 +6,16 @@ import { validate } from "../middlewares/validate";
 import {
   createOrgSchema,
   deliveryDetailsSchema,
+  inviteMemberSchema,
+  inviteParamsSchema,
+  lookupInviteeSchema,
+  memberParamsSchema,
   orgIdentifierSchema,
   submitOrgDetailsSchema,
   submitPaymentDetailsSchema,
+  updateMemberRoleSchema,
   updateOrgSchema,
+  verifyPaymentSchema,
 } from "../validators/org";
 import { listDeliverySchema } from "../validators/delivery";
 
@@ -42,6 +48,13 @@ router.patch(
   orgController.submitPaymentDetails,
 );
 
+router.post(
+  "/:identifier/payment/verify",
+  validate(orgIdentifierSchema),
+  validate(verifyPaymentSchema),
+  orgController.verifyPayment,
+);
+
 router.patch(
   "/:identifier/details",
   validate(orgIdentifierSchema),
@@ -53,6 +66,50 @@ router.get(
   "/de-details",
   validate(deliveryDetailsSchema),
   orgController.getDeliveryDetails,
+);
+
+// ---------- Members & invitations ----------
+
+router.get(
+  "/:identifier/members",
+  validate(orgIdentifierSchema),
+  orgController.listMembers,
+);
+
+router.post(
+  "/:identifier/members/invite",
+  validate(inviteMemberSchema),
+  orgController.inviteMember,
+);
+
+router.post(
+  "/:identifier/members/lookup",
+  validate(lookupInviteeSchema),
+  orgController.lookupInvitee,
+);
+
+router.patch(
+  "/:identifier/members/:memberId/role",
+  validate(updateMemberRoleSchema),
+  orgController.changeMemberRole,
+);
+
+router.delete(
+  "/:identifier/members/:memberId",
+  validate(memberParamsSchema),
+  orgController.removeMember,
+);
+
+router.delete(
+  "/:identifier/members/invitations/:inviteId",
+  validate(inviteParamsSchema),
+  orgController.revokeInvitation,
+);
+
+router.post(
+  "/:identifier/members/invitations/:inviteId/resend",
+  validate(inviteParamsSchema),
+  orgController.resendInvitation,
 );
 
 export default router;

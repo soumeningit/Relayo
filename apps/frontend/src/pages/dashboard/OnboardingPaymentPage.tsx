@@ -10,9 +10,9 @@ import { Button } from "../../components/ui/Button";
 import { OnboardingShell } from "../../components/layout/OnboardingShell";
 import { PageLoader } from "../../components/ui/Spinner";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
-import { useApiCall } from "../../hooks/useApiCall";
+import { useRazorpayCheckout } from "../../hooks/useRazorpayCheckout";
+import { getApiErrorMessage } from "../../lib/apiError";
 import { plans, type Plan } from "../../data/pricing";
-import { submitPayment } from "../../api/services/OrgService";
 import { useTenant } from "../../contexts/TenantContext";
 
 function OnboardingPaymentPage() {
@@ -25,7 +25,8 @@ function OnboardingPaymentPage() {
   const navigate = useNavigate();
   const { tenant, isLoading, setTenant } = useTenant();
   const [selectedPlanId, setSelectedPlanId] = useState("pro");
-  const { isLoading: submitting, run } = useApiCall();
+  const { createCheckout, status: checkoutStatus } = useRazorpayCheckout();
+  const submitting = checkoutStatus !== "idle";
 
   if (isLoading) return <PageLoader />;
 
@@ -37,24 +38,41 @@ function OnboardingPaymentPage() {
   const handleContinue = async () => {
     if (!slug || submitting) return;
 
-    // Records the plan now — card capture arrives with the billing milestone
-    const response = await run(
-      () => submitPayment(slug, { planType: selectedPlan.apiPlanId }),
-      { showErrorToast: false },
-    );
-    if (!response) return;
+    try {
+      const result = await createCheckout(slug, selectedPlan.apiPlanId);
 
-    setTenant({
-      ...tenant,
-      status: response.data.status,
-      completedSteps: Math.max(
-        tenant.completedSteps,
-        response.data.completedSteps,
-      ),
-    });
-    toast.success(`${selectedPlan.name} plan activated`);
+      if (result.kind === "free") {
+        const data = result.response.data;
+        setTenant({
+          ...tenant,
+          status: data.status,
+          completedSteps: Math.max(
+            tenant.completedSteps,
+            data.completedSteps,
+          ),
+        });
+        toast.success(`${selectedPlan.name} plan activated`);
+      } else {
+        const data = result.response.data;
+        setTenant({
+          ...tenant,
+          status: "ACTIVE",
+          completedSteps: Math.max(
+            tenant.completedSteps,
+            data.completedSteps,
+          ),
+        });
+        toast.success(
+          `Payment received. Your ${selectedPlan.name} plan is active until ${new Date(
+            data.currentPeriodEnd as string,
+          ).toLocaleDateString()}.`,
+        );
+      }
 
-    navigate(`/dashboard/onboarding/${slug}/details`, { replace: true });
+      navigate(`/dashboard/onboarding/${slug}/details`, { replace: true });
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
   };
 
   return (
@@ -66,8 +84,8 @@ function OnboardingPaymentPage() {
         Choose a plan for {tenant?.name}
       </h1>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        Pick the tier that fits today — you can switch anytime in Settings.
-        Card capture arrives with the billing milestone.
+        Pay once for a 30-day period — no subscriptions, no auto-renewal. When
+        the period ends you simply pay once again.
       </p>
 
       <fieldset className="mt-6" disabled={submitting}>
@@ -109,7 +127,9 @@ function OnboardingPaymentPage() {
           isLoading={submitting}
           disabled={isLoading}
         >
-          Continue with the {selectedPlan.name} plan{" "}
+          {selectedPlan.apiPlanId === "FREE"
+            ? `Continue with the ${selectedPlan.name} plan`
+            : `Pay ${selectedPlan.price} now · 30 days`}{" "}
           <FiArrowRight aria-hidden="true" />
         </Button>
         <div className="text-center">

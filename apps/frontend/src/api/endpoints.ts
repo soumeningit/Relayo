@@ -19,6 +19,28 @@ export const orgEndpoints = {
     `${BASE_URL}/org/${encodeURIComponent(identifier)}/details`,
   SUBMIT_PAYMENT: (identifier: string) =>
     `${BASE_URL}/org/${encodeURIComponent(identifier)}/payment`,
+  VERIFY_PAYMENT: (identifier: string) =>
+    `${BASE_URL}/org/${encodeURIComponent(identifier)}/payment/verify`,
+  MEMBERS: (identifier: string) =>
+    `${BASE_URL}/org/${encodeURIComponent(identifier)}/members`,
+  INVITE_MEMBER: (identifier: string) =>
+    `${BASE_URL}/org/${encodeURIComponent(identifier)}/members/invite`,
+  INVITE_LOOKUP: (identifier: string) =>
+    `${BASE_URL}/org/${encodeURIComponent(identifier)}/members/lookup`,
+  REMOVE_MEMBER: (identifier: string, memberId: string) =>
+    `${BASE_URL}/org/${encodeURIComponent(identifier)}/members/${encodeURIComponent(memberId)}`,
+  CHANGE_MEMBER_ROLE: (identifier: string, memberId: string) =>
+    `${BASE_URL}/org/${encodeURIComponent(identifier)}/members/${encodeURIComponent(memberId)}/role`,
+  REVOKE_INVITE: (identifier: string, inviteId: string) =>
+    `${BASE_URL}/org/${encodeURIComponent(identifier)}/members/invitations/${encodeURIComponent(inviteId)}`,
+  RESEND_INVITE: (identifier: string, inviteId: string) =>
+    `${BASE_URL}/org/${encodeURIComponent(identifier)}/members/invitations/${encodeURIComponent(inviteId)}/resend`,
+};
+
+export const inviteEndpoints = {
+  DETAIL: (token: string) =>
+    `${BASE_URL}/invite/${encodeURIComponent(token)}`,
+  RESPOND: `${BASE_URL}/invite/respond`,
 };
 
 export const eventEndpoints = {

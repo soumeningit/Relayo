@@ -6,6 +6,7 @@ import PricingPage from "./pages/PricingPage";
 import ContactPage from "./pages/ContactPage";
 import AboutPage from "./pages/AboutPage";
 import SignupPage from "./pages/auth/SignupPage";
+import InvitePage from "./pages/auth/InvitePage";
 import VerifyEmailPage from "./pages/auth/VerifyEmailPage";
 import SigninPage from "./pages/auth/SigninPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
@@ -21,17 +22,34 @@ import EventsPage from "./pages/dashboard/EventsPage";
 import EventDetailPage from "./pages/dashboard/EventDetailPage";
 import DeliveriesPage from "./pages/dashboard/DeliveriesPage";
 import OrganizationPage from "./pages/dashboard/OrganizationPage";
+import MembersPage from "./pages/dashboard/MembersPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import {
   ProtectedRoute,
   PublicOnlyRoute,
+  AdminProtectedRoute,
+  AdminPublicOnlyRoute,
 } from "./components/route-guards/RouteGuards";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
+import { AdminLayout } from "./components/layout/AdminLayout";
 import { MarketingLayout } from "./components/layout/MarketingLayout";
 import { RequireTenant } from "./contexts/TenantContext";
 import FailedDeliveriesPage from "./pages/dashboard/FailedDeliveriesPage";
 import ApiKeysPage from "./pages/dashboard/ApiKeyPage";
 import ProfilePage from "./pages/dashboard/ProfilePage";
+import AdminLoginPage from "./pages/admin/AdminLoginPage";
+import AdminOverviewPage from "./pages/admin/AdminOverviewPage";
+import AdminOrganizationsPage from "./pages/admin/AdminOrganizationsPage";
+import AdminOrganizationDetailPage from "./pages/admin/AdminOrganizationDetailPage";
+import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminBillingPage from "./pages/admin/AdminBillingPage";
+import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
+import AdminHealthPage from "./pages/admin/AdminHealthPage";
+import AdminDeliveriesPage from "./pages/admin/AdminDeliveriesPage";
+import AdminDeliveryDetailPage from "./pages/admin/AdminDeliveryDetailPage";
+import AdminEventsPage from "./pages/admin/AdminEventsPage";
+import AdminEventDetailPage from "./pages/admin/AdminEventDetailPage";
+import AdminUsagePage from "./pages/admin/AdminUsagePage";
 
 function App() {
   return (
@@ -75,6 +93,7 @@ function App() {
       {/* Token links must work regardless of auth state */}
       <Route path="/verify" element={<VerifyEmailPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/invite/:token" element={<InvitePage />} />
 
       {/* Onboarding wizard — standalone screens, auth required (no dashboard chrome) */}
       <Route path="/dashboard">
@@ -113,12 +132,48 @@ function App() {
               element={<FailedDeliveriesPage />}
             />
             <Route path="organization" element={<OrganizationPage />} />
+            <Route path="members" element={<MembersPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="api-keys" element={<ApiKeysPage />} />
             <Route path="profile" element={<ProfilePage />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
+      </Route>
+
+      {/* Super admin — platform owner. Login only, MFA required (mock data). */}
+      <Route
+        path="/admin"
+        element={
+          <AdminPublicOnlyRoute>
+            <AdminLoginPage />
+          </AdminPublicOnlyRoute>
+        }
+      />
+      <Route
+        path="/admin/dashboard"
+        element={
+          <AdminProtectedRoute>
+            <AdminLayout />
+          </AdminProtectedRoute>
+        }
+      >
+        <Route index element={<AdminOverviewPage />} />
+        <Route path="organizations" element={<AdminOrganizationsPage />} />
+        <Route
+          path="organizations/:id"
+          element={<AdminOrganizationDetailPage />}
+        />
+        <Route path="users" element={<AdminUsersPage />} />
+        <Route path="billing" element={<AdminBillingPage />} />
+        <Route path="settings" element={<AdminSettingsPage />} />
+        <Route path="health" element={<AdminHealthPage />} />
+        <Route path="deliveries" element={<AdminDeliveriesPage />} />
+        <Route path="deliveries/:deliveryId" element={<AdminDeliveryDetailPage />} />
+        <Route path="events" element={<AdminEventsPage />} />
+        <Route path="events/:eventId" element={<AdminEventDetailPage />} />
+        <Route path="usage" element={<AdminUsagePage />} />
+        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

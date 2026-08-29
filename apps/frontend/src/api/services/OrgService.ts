@@ -3,7 +3,13 @@ import { orgEndpoints } from "../endpoints";
 import type {
   CreateOrgRequest,
   CreateOrgResponse,
+  InviteMemberPayload,
+  InviteMemberResponse,
+  InviteeLookup,
+  MemberInvitation,
+  MemberRole,
   OrgFull,
+  OrgMember,
   OrgSummary,
   SubmitOrgDetailsRequest,
   SubmitOrgDetailsResponse,
@@ -11,6 +17,8 @@ import type {
   SubmitPaymentResponse,
   UpdateOrgRequest,
   UpdateOrgResponse,
+  VerifyPaymentRequest,
+  VerifyPaymentResponse,
 } from "../../types/org";
 
 interface ListEnvelope<T> {
@@ -50,6 +58,17 @@ export async function submitPayment(
   return response.data;
 }
 
+export async function verifyPayment(
+  identifier: string,
+  payload: VerifyPaymentRequest,
+) {
+  const response = await api.post<VerifyPaymentResponse>(
+    orgEndpoints.VERIFY_PAYMENT(identifier),
+    payload,
+  );
+  return response.data;
+}
+
 export async function updateOrganization(
   identifier: string,
   payload: UpdateOrgRequest,
@@ -76,5 +95,63 @@ export async function submitOrganizationDetails(
     orgEndpoints.SUBMIT_DETAILS(identifier),
     body,
   );
+  return response.data;
+}
+
+export async function listMembers(
+  identifier: string,
+): Promise<{ members: OrgMember[]; invitations: MemberInvitation[] }> {
+  const response = await api.get<{
+    success: boolean;
+    data: { members: OrgMember[]; invitations: MemberInvitation[] };
+  }>(orgEndpoints.MEMBERS(identifier));
+  return response.data.data;
+}
+
+export async function inviteMember(
+  identifier: string,
+  payload: InviteMemberPayload,
+): Promise<InviteMemberResponse> {
+  const response = await api.post<{
+    success: boolean;
+    message: string;
+    data: InviteMemberResponse;
+  }>(orgEndpoints.INVITE_MEMBER(identifier), payload);
+  return response.data.data;
+}
+
+export async function lookupInvitee(
+  identifier: string,
+  email: string,
+): Promise<InviteeLookup> {
+  const response = await api.post<{ success: boolean; data: InviteeLookup }>(
+    orgEndpoints.INVITE_LOOKUP(identifier),
+    { email },
+  );
+  return response.data.data;
+}
+
+export async function removeMember(identifier: string, memberId: string) {
+  await api.delete(orgEndpoints.REMOVE_MEMBER(identifier, memberId));
+}
+
+export async function changeMemberRole(
+  identifier: string,
+  memberId: string,
+  role: Exclude<MemberRole, "OWNER">,
+) {
+  const response = await api.patch(
+    orgEndpoints.CHANGE_MEMBER_ROLE(identifier, memberId),
+    { role },
+  );
+  return response.data;
+}
+
+export async function revokeInvitation(identifier: string, inviteId: string) {
+  await api.delete(orgEndpoints.REVOKE_INVITE(identifier, inviteId));
+}
+
+export async function resendInvitation(identifier: string, inviteId: string) {
+  const response = await api.post(orgEndpoints.RESEND_INVITE(identifier, inviteId));
   return response.data;
 }

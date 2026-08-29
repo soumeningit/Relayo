@@ -1,4 +1,5 @@
-// Shared plan data for the pricing page and onboarding payment step
+// Shared plan data for the pricing page and onboarding payment step.
+// Payments are one-time: each successful payment grants one 30-day period.
 export type ApiPlanId = "FREE" | "PRO" | "SCALE";
 
 export interface Plan {
@@ -18,7 +19,7 @@ export const plans: Plan[] = [
     id: "free",
     apiPlanId: "FREE",
     name: "Free",
-    price: "$0",
+    price: "₹0",
     period: "forever",
     tagline: "For side projects and evaluation",
     features: [
@@ -32,8 +33,8 @@ export const plans: Plan[] = [
     id: "pro",
     apiPlanId: "PRO",
     name: "Pro",
-    price: "$29",
-    period: "/month",
+    price: "₹999",
+    period: "/ 30 days",
     tagline: "For production workloads",
     highlight: true,
     features: [
@@ -47,8 +48,8 @@ export const plans: Plan[] = [
     id: "scale",
     apiPlanId: "SCALE",
     name: "Scale",
-    price: "$99",
-    period: "/month",
+    price: "₹2,999",
+    period: "/ 30 days",
     tagline: "For high-volume platforms",
     features: [
       "Unlimited deliveries",
@@ -59,20 +60,18 @@ export const plans: Plan[] = [
   },
 ];
 
-export const yearlyPrice = (plan: Plan): string => {
-  if (plan.price === "$0") return "$0";
-  const monthly = Number(plan.price.replace("$", ""));
-  return `$${monthly * 10}`; // 2 months free
-};
-
 export const pricingFaqs = [
+  {
+    q: "How does billing work?",
+    a: "No subscriptions and no auto-renewal. You pay once for a 30-day period up front — whichever plan you pick. When the period ends, the organization drops back to Free (your data is kept) and you simply pay once again to continue.",
+  },
   {
     q: "What counts as a delivery?",
     a: "Every attempt we make to one destination counts once — retries caused by your endpoint being down are never billed against you twice.",
   },
   {
     q: "Can I change plans at any time?",
-    a: "Yes. Upgrades apply immediately, downgrades take effect at the end of your billing cycle. Your delivery history always stays intact.",
+    a: "Yes. Pay for the tier you want; the new 30-day period starts from your current period end. Your delivery history always stays intact.",
   },
   {
     q: "What happens when I exceed my limit?",
