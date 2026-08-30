@@ -9,6 +9,13 @@ export interface AuthenticatedRequest extends Request {
     id: string;
     email: string;
   };
+  /** Populated by requireSuperAdmin for admin-gated routes */
+  admin?: {
+    id: number;
+    userId: string;
+    email: string;
+    name: string;
+  };
 }
 
 interface AccessTokenPayload {

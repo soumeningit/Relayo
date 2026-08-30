@@ -6,7 +6,7 @@ import { OrgStatusBadge, PlanBadge } from "../../components/admin/badges";
 import type { AdminUsageSummary } from "../../types/admin";
 import { formatDate } from "../../lib/time";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
-import * as opsService from "../../api/services/adminOpsService";
+import * as opsService from "../../api/services/adminApi";
 
 const compact = (value: number) => {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;

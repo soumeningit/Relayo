@@ -19,7 +19,7 @@ import {
 import type { AdminConfigStatus, AdminHealth } from "../../types/admin";
 import { timeAgo, formatLatency } from "../../lib/time";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
-import * as opsService from "../../api/services/adminOpsService";
+import * as opsService from "../../api/services/adminApi";
 
 function AdminHealthPage() {
   useDocumentMeta({

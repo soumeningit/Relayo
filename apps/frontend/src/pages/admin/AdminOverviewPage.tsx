@@ -24,7 +24,7 @@ import type { AdminOverviewData } from "../../types/admin";
 import { formatInr } from "../../lib/format";
 import { timeAgo } from "../../lib/time";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
-import * as adminService from "../../api/services/adminMockService";
+import * as adminService from "../../api/services/adminApi";
 
 function AdminOverviewPage() {
   useDocumentMeta({

@@ -20,8 +20,7 @@ import { useAdmin } from "../../contexts/AdminContext";
 import { validateName, validatePassword } from "../../lib/validation";
 import { formatDate, timeAgo } from "../../lib/time";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
-import * as adminService from "../../api/services/adminMockService";
-import * as opsService from "../../api/services/adminOpsService";
+import * as adminService from "../../api/services/adminApi";
 import type {
   AdminAuditCategory,
   AdminAuditEntry,
@@ -81,11 +80,11 @@ function AdminSettingsPage() {
       setName(result.name);
     });
 
-    opsService.getFeatureFlags().then((result) => {
+    adminService.getFeatureFlags().then((result) => {
       if (!cancelled) setFlags(result);
     });
 
-    opsService.listAuditEntries().then((result) => {
+    adminService.listAuditEntries().then((result) => {
       if (!cancelled) setAudit(result);
     });
 
@@ -141,7 +140,7 @@ function AdminSettingsPage() {
   const handleToggleFlag = async (flag: AdminFeatureFlag) => {
     setTogglingFlag(flag.id);
     try {
-      const updated = await opsService.updateFeatureFlag(flag.id, !flag.enabled);
+      const updated = await adminService.updateFeatureFlag(flag.id, !flag.enabled);
       setFlags((prev) =>
         prev ? prev.map((item) => (item.id === updated.id ? updated : item)) : prev,
       );
@@ -158,18 +157,24 @@ function AdminSettingsPage() {
     }
   };
 
-  const downloadCsv = (kind: "organizations" | "users" | "payments") => {
+  const downloadCsv = async (kind: "organizations" | "users" | "payments") => {
     setExporting(kind);
-    const csv = opsService.buildAdminCsv(kind);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `relayo-${kind}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    setExporting(null);
-    toast.success(`${kind.charAt(0).toUpperCase() + kind.slice(1)} exported.`);
+    try {
+      const csv = await adminService.buildAdminCsv(kind);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `relayo-${kind}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success(`${kind.charAt(0).toUpperCase() + kind.slice(1)} exported.`);
+    } catch (error) {
+      console.error("Error exporting CSV:", error);
+      toast.error("Could not export the CSV.");
+    } finally {
+      setExporting(null);
+    }
   };
 
   const auditRows = useMemo(() => {

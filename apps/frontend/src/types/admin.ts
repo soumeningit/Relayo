@@ -145,6 +145,13 @@ export interface AdminDelivery {
   updatedAt: string;
 }
 
+/** Delivery counts for the current filter scope (independent of status filter). */
+export interface AdminDeliverySummary {
+  total: number;
+  pending: number;
+  failed: number;
+}
+
 export interface AdminEvent {
   id: string;
   organizationId: string;

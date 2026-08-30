@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import {
   FiActivity,
+  FiBookOpen,
   FiBriefcase,
   FiChevronsLeft,
   FiChevronsRight,
@@ -22,6 +23,7 @@ const items = [
   { to: "/admin/dashboard/users", label: "Users", icon: FiUsers },
   { to: "/admin/dashboard/billing", label: "Billing", icon: FiCreditCard },
   { to: "/admin/dashboard/usage", label: "Usage", icon: FiActivity },
+  { to: "/admin/dashboard/docs", label: "Docs", icon: FiBookOpen },
   { to: "/admin/dashboard/settings", label: "Settings", icon: FiSettings },
 ];
 

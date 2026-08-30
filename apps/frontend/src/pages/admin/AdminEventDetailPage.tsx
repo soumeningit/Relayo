@@ -6,7 +6,7 @@ import { AdminDeliveryStatusBadge } from "../../components/admin/badges";
 import type { AdminDelivery, AdminEvent } from "../../types/admin";
 import { formatLatency, timeAgo } from "../../lib/time";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
-import * as opsService from "../../api/services/adminOpsService";
+import * as opsService from "../../api/services/adminApi";
 
 function AdminEventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -37,7 +37,7 @@ function AdminEventDetailPage() {
     opsService
       .listAdminDeliveries({ eventId })
       .then((result) => {
-        if (!cancelled) setDeliveries(result);
+        if (!cancelled) setDeliveries(result.items);
       })
       .catch(() => {
         /* deliveries are optional context */

@@ -16,7 +16,7 @@ import {
   adminLogin,
   adminResendMfaCode,
   adminVerifyMfa,
-} from "../../api/services/adminMockService";
+} from "../../api/services/adminApi";
 import { validateEmail, validatePassword } from "../../lib/validation";
 
 function AdminLoginPage() {

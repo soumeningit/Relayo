@@ -17,10 +17,21 @@ import {
   PlanBadge,
 } from "../../components/admin/badges";
 import type { AdminOrganization } from "../../types/admin";
+import { DEFAULT_PAGE_SIZE, type PaginationMeta } from "../../types/pagination";
+import { Pagination } from "../../components/dashboard/Pagination";
 import { formatInr } from "../../lib/format";
 import { formatDate } from "../../lib/time";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
-import * as adminService from "../../api/services/adminMockService";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import * as adminService from "../../api/services/adminApi";
+
+const emptyPagination: PaginationMeta = {
+  page: 1,
+  pageSize: DEFAULT_PAGE_SIZE,
+  total: 0,
+  totalPages: 1,
+  hasMore: false,
+};
 
 function AdminOrganizationsPage() {
   useDocumentMeta({
@@ -30,19 +41,28 @@ function AdminOrganizationsPage() {
 
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 350);
   const [organizations, setOrganizations] = useState<AdminOrganization[] | null>(
     null,
   );
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [pagination, setPagination] =
+    useState<PaginationMeta>(emptyPagination);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     adminService
-      .listAdminOrganizations(search)
+      .listAdminOrganizations(debouncedSearch || undefined, { page, pageSize })
       .then((result) => {
         if (cancelled) return;
-        setOrganizations(result);
+        setOrganizations(result.items);
+        setPagination(result.pagination);
+        if (result.items.length === 0 && result.pagination.total > 0) {
+          setPage(1);
+        }
       })
       .catch((error) => {
         console.error("Error fetching organizations:", error);
@@ -51,7 +71,12 @@ function AdminOrganizationsPage() {
     return () => {
       cancelled = true;
     };
-  }, [search]);
+  }, [debouncedSearch, page, pageSize]);
+
+  const handlePageSizeChange = (nextSize: number) => {
+    setPageSize(nextSize);
+    setPage(1);
+  };
 
   const toggleStatus = async (org: AdminOrganization) => {
     const next = org.status === "active" ? "suspended" : "active";
@@ -94,7 +119,10 @@ function AdminOrganizationsPage() {
             type="search"
             placeholder="Search name or slug…"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
             className="h-10 w-64 rounded-xl border border-border bg-input pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
           />
         </label>
@@ -105,7 +133,7 @@ function AdminOrganizationsPage() {
           <div className="flex justify-center py-20">
             <Spinner className="h-8 w-8 text-indigo-500" />
           </div>
-        ) : organizations.length === 0 ? (
+        ) : organizations.length === 0 && pagination.total === 0 ? (
           <EmptyState
             icon={<FiSearch />}
             title="No organizations found"
@@ -116,7 +144,8 @@ function AdminOrganizationsPage() {
             }
           />
         ) : (
-          <TableWrapper>
+          <>
+            <TableWrapper>
             <THead>
               <TR>
                 <TH>Organization</TH>
@@ -212,6 +241,18 @@ function AdminOrganizationsPage() {
               ))}
             </tbody>
           </TableWrapper>
+          {pagination.total > 0 && (
+            <Pagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              total={pagination.total}
+              totalPages={pagination.totalPages}
+              hasMore={pagination.hasMore}
+              onPageChange={setPage}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          )}
+          </>
         )}
       </div>
     </div>

@@ -34,8 +34,7 @@ import type {
 import { formatInr } from "../../lib/format";
 import { formatDate } from "../../lib/time";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
-import * as adminService from "../../api/services/adminMockService";
-import * as opsService from "../../api/services/adminOpsService";
+import * as adminService from "../../api/services/adminApi";
 
 const selectClasses =
   "h-10 rounded-xl border border-border bg-input px-3.5 text-sm text-foreground focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30";
@@ -65,7 +64,7 @@ function AdminBillingPage() {
 
   const refreshPayments = (selected: string | null = null) => {
     adminService
-      .listAdminPayments(selected ?? status)
+      .listAdminPayments((selected ?? status) as AdminPaymentStatus | "all")
       .then((result) => setPayments(result))
       .catch((error) => {
         console.error("Error fetching payments:", error);
@@ -79,11 +78,11 @@ function AdminBillingPage() {
       if (!cancelled) setPayments(result);
     });
 
-    opsService.getAdminRevenue().then((result) => {
+    adminService.getAdminRevenue().then((result) => {
       if (!cancelled) setRevenue(result);
     });
 
-    opsService.listExpiredOrganizations().then((result) => {
+    adminService.listExpiredOrganizations().then((result) => {
       if (!cancelled) setExpired(result);
     });
 

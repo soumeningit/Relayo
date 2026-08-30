@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   USER
   ADMIN
+  SUPER_ADMIN
 }
 
 enum Status {
@@ -187,6 +188,7 @@ model Organization {
   PaymentType         PaymentType               @map("payment_type") @default(FREE)
   paymentStatus       OrganizationPaymentStatus @map("payment_status") @default(PENDING)
   currentPeriodEnd    DateTime?                 @map("current_period_end")
+  adminNotes          String?                   @map("admin_notes")
   createdAt           DateTime                  @default(now())
   updatedAt           DateTime                  @updatedAt
   metadata            Json?
@@ -297,6 +299,7 @@ model Destination {
   status                       DestinationStatus      @default(ACTIVE)
   pauseReason                  String?                @map("pause_reason")
   consecutiveFailures          Int                    @default(0) @map("consecutive_failures")
+  breakerOpenedAt              DateTime?              @map("breaker_opened_at")
   createdBy                    BigInt                 @map("created_by")
 
   lastSuccessAt                DateTime?              @map("last_success_at")
@@ -333,6 +336,7 @@ enum DeliveryStatus {
   SUCCESS
   FAILED
   PAUSED
+  DEAD_LETTER
 }
 
 model Delivery {
@@ -344,6 +348,7 @@ model Delivery {
   attempts                  Int                    @default(0)
   nextRetryAt               DateTime?              @map("next_retry_at")
   lastResponseStatusCode    Int?                   @map("last_response_status_code")
+  latencyMs                 Int?                   @map("latency_ms")
   lastErrorMessage          String?                @map("last_error_message")
   completedAt               DateTime?              @map("completed_at")
   createdAt                 DateTime               @default(now()) @map("created_at")
@@ -352,6 +357,7 @@ model Delivery {
   organization              Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   event                     Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
   destination               Destination            @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  deliveryAttempts          DeliveryAttempt[]
 
   @@map("deliveries")
   @@index([organizationId])
@@ -665,5 +671,118 @@ model AuditLog {
   @@index([route, method])
   @@index([allowed])
   @@map("audit_logs")
+}
+
+// ============= ADMIN CONSOLE MODELS =============
+
+enum DeliveryAttemptStatus {
+  SUCCESS
+  FAILED
+}
+
+model DeliveryAttempt {
+  id            BigInt               @id @default(autoincrement())
+  deliveryId    BigInt               @map("delivery_id")
+  attemptNumber Int                  @map("attempt_number")
+  status        DeliveryAttemptStatus
+  responseCode  Int?                 @map("response_code")
+  latencyMs     Int?                 @map("latency_ms")
+  errorMessage  String?              @map("error_message")
+  attemptedAt   DateTime             @default(now()) @map("attempted_at")
+  createdAt     DateTime             @default(now()) @map("created_at")
+
+  delivery      Delivery             @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@unique([deliveryId, attemptNumber])
+  @@index([deliveryId])
+  @@map("delivery_attempts")
+}
+
+enum AdminActorType {
+  ADMIN
+  USER
+  SYSTEM
+}
+
+enum AdminAuditCategory {
+  AUTH
+  SECURITY
+  ORGANIZATION
+  USER
+  BILLING
+  SYSTEM
+}
+
+model AdminAuditLog {
+  id         String             @id @default(cuid())
+  actorType  AdminActorType     @map("actor_type")
+  actorId    BigInt?            @map("actor_id")
+  actorEmail String?            @map("actor_email")
+  category   AdminAuditCategory
+  action     String
+  target     String
+  ip         String
+  location   String?            @map("location")
+  timestamp  DateTime           @default(now())
+  createdAt  DateTime           @default(now()) @map("created_at")
+
+  @@index([timestamp(sort: Desc)])
+  @@index([category])
+  @@index([actorType])
+  @@map("admin_audit_logs")
+}
+
+enum IncidentSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum IncidentStatus {
+  OPEN
+  RESOLVED
+}
+
+model Incident {
+  id         String           @id @default(cuid())
+  severity   IncidentSeverity
+  title      String
+  message    String
+  status     IncidentStatus   @default(OPEN)
+  startedAt  DateTime         @default(now()) @map("started_at")
+  resolvedAt DateTime?        @map("resolved_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  @@index([status, severity])
+  @@map("incidents")
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  description String?
+  enabled     Boolean  @default(false)
+  dangerous   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("feature_flags")
+}
+
+model Doc {
+  id          BigInt    @id @default(autoincrement())
+  slug        String    @unique
+  title       String
+  content     String
+  excerpt     String?   @map("excerpt")
+  published   Boolean   @default(false)
+  publishedAt DateTime? @map("published_at")
+  authorName  String?   @map("author_name")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("docs")
 }
 

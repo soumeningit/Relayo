@@ -33,7 +33,7 @@ export function AdminProtectedRoute({ children }: GuardProps) {
 
   if (isLoading) return <PageLoader />;
   if (!isAuthenticated) {
-    return <Navigate to="/admin" state={{ from: location }} replace />;
+    return <Navigate to="/admin/signin" state={{ from: location }} replace />;
   }
   return children ? <>{children}</> : <Outlet />;
 }

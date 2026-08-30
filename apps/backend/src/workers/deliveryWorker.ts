@@ -17,6 +17,22 @@ interface DeliveryJobData {
   destinationId: string;
 }
 
+async function openIncident(
+  severity: "INFO" | "WARNING" | "CRITICAL",
+  title: string,
+  message: string,
+) {
+  await prisma.incident.create({ data: { severity, title, message } });
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
 export const deliveryWorker = new Worker<DeliveryJobData>(
   "relayo_deliveries",
   async (job: Job<DeliveryJobData>) => {
@@ -80,6 +96,10 @@ export const deliveryWorker = new Worker<DeliveryJobData>(
     // 6. Format the header
     const signatureHeader = `t=${timestamp},v1=${signatureHash}`;
 
+    const attemptNumber = currentDelivery.attempts + 1;
+    const startedAt = Date.now();
+    const host = hostOf(destination.url);
+
     // --- MAKE THE HTTP REQUEST ---
     try {
       const response = await axios.post(destination.url, event.payload, {
@@ -91,24 +111,56 @@ export const deliveryWorker = new Worker<DeliveryJobData>(
         validateStatus: (status) => status < 500,
       });
 
+      const latencyMs = Math.round(Date.now() - startedAt);
+
       // --- SUCCESS PATH ---
-      await prisma.$transaction([
-        prisma.delivery.update({
+      await prisma.$transaction(async (tx) => {
+        await tx.delivery.update({
           where: { id: currentDelivery.id },
           data: {
             status: "SUCCESS",
+            attempts: attemptNumber,
+            latencyMs,
             lastResponseStatusCode: response.status,
+            lastErrorMessage: null,
+            nextRetryAt: null,
             completedAt: new Date(),
           },
-        }),
-        prisma.destination.update({
+        });
+
+        await tx.deliveryAttempt.create({
+          data: {
+            deliveryId: currentDelivery.id,
+            attemptNumber,
+            status: "SUCCESS",
+            responseCode: response.status,
+            latencyMs,
+            errorMessage: null,
+            attemptedAt: new Date(),
+          },
+        });
+
+        await tx.destination.update({
           where: { id: destination.id },
           data: {
             consecutiveFailures: 0,
             lastSuccessAt: new Date(),
+            breakerOpenedAt: null,
           },
-        }),
-      ]);
+        });
+
+        // Auto-resolve incidents against this host once it recovers.
+        await tx.incident.updateMany({
+          where: {
+            status: "OPEN",
+            OR: [
+              { title: { contains: host } },
+              { message: { contains: host } },
+            ],
+          },
+          data: { status: "RESOLVED", resolvedAt: new Date() },
+        });
+      });
     } catch (error: any) {
       const statusCode = error.response?.status || 0;
       // If Axios threw due to a 5xx error, but validateStatus caught it,
@@ -116,59 +168,124 @@ export const deliveryWorker = new Worker<DeliveryJobData>(
       const finalStatusCode = error.response?.status || statusCode;
       const errorMessage =
         error.code === "ECONNABORTED" ? "Request timed out" : error.message;
-      const newAttemptCount = currentDelivery.attempts + 1;
+      const latencyMs = Math.round(Date.now() - startedAt);
+      const nextConsecutiveFailures = destination.consecutiveFailures + 1;
+      const breakerJustOpened =
+        nextConsecutiveFailures >= PAUSE_DESTINATION_AFTER &&
+        destination.consecutiveFailures < PAUSE_DESTINATION_AFTER;
 
-      // --- PER-JOB CIRCUIT BREAKER ---
-      if (newAttemptCount >= MAX_RETRIES_PER_JOB) {
-        await prisma.delivery.update({
-          where: { id: currentDelivery.id },
-          data: {
-            status: "FAILED",
-            attempts: newAttemptCount,
-            lastResponseStatusCode: finalStatusCode,
-            lastErrorMessage: errorMessage,
-            completedAt: new Date(),
-          },
+      // --- PER-JOB CIRCUIT BREAKER (terminate this delivery) ---
+      if (attemptNumber >= MAX_RETRIES_PER_JOB) {
+        await prisma.$transaction(async (tx) => {
+          await tx.delivery.update({
+            where: { id: currentDelivery.id },
+            data: {
+              status: "DEAD_LETTER",
+              attempts: attemptNumber,
+              latencyMs,
+              lastResponseStatusCode: finalStatusCode,
+              lastErrorMessage: errorMessage,
+              completedAt: new Date(),
+            },
+          });
+
+          await tx.deliveryAttempt.create({
+            data: {
+              deliveryId: currentDelivery.id,
+              attemptNumber,
+              status: "FAILED",
+              responseCode: finalStatusCode || null,
+              latencyMs,
+              errorMessage,
+              attemptedAt: new Date(),
+            },
+          });
+
+          await tx.destination.update({
+            where: { id: destination.id },
+            data: {
+              consecutiveFailures: nextConsecutiveFailures,
+              lastFailureAt: new Date(),
+              ...(breakerJustOpened
+                ? {
+                    status: "PAUSED",
+                    breakerOpenedAt: new Date(),
+                    pauseReason: `Automatically paused after ${PAUSE_DESTINATION_AFTER} consecutive failures.`,
+                  }
+                : {}),
+            },
+          });
         });
+
+        if (breakerJustOpened) {
+          await openIncident(
+            "WARNING",
+            `Circuit breaker opened — ${host}`,
+            `Consecutive failures against ${host} passed ${PAUSE_DESTINATION_AFTER}, opening circuit breakers. Probing every ~60s.`,
+          );
+        }
+
+        await openIncident(
+          "WARNING",
+          `Delivery dead-lettered — ${host}`,
+          `A delivery to ${host} exhausted ${MAX_RETRIES_PER_JOB} attempts and moved to the dead-letter queue. Last error: ${errorMessage}`,
+        );
+
         return;
       }
 
       // --- CALCULATE EXPONENTIAL BACKOFF ---
-      const delayMs = BASE_DELAY_MS * Math.pow(2, newAttemptCount);
+      const delayMs = BASE_DELAY_MS * Math.pow(2, attemptNumber);
       const nextRetryAt = new Date(Date.now() + delayMs);
 
       // --- UPDATE DATABASE (single transaction to avoid partial writes) ---
-      const updateDelivery = prisma.delivery.update({
-        where: { id: currentDelivery.id },
-        data: {
-          attempts: newAttemptCount,
-          nextRetryAt,
-          lastResponseStatusCode: finalStatusCode,
-          lastErrorMessage: errorMessage,
-        },
+      await prisma.$transaction(async (tx) => {
+        await tx.delivery.update({
+          where: { id: currentDelivery.id },
+          data: {
+            attempts: attemptNumber,
+            latencyMs,
+            nextRetryAt,
+            lastResponseStatusCode: finalStatusCode,
+            lastErrorMessage: errorMessage,
+          },
+        });
+
+        await tx.deliveryAttempt.create({
+          data: {
+            deliveryId: currentDelivery.id,
+            attemptNumber,
+            status: "FAILED",
+            responseCode: finalStatusCode || null,
+            latencyMs,
+            errorMessage,
+            attemptedAt: new Date(),
+          },
+        });
+
+        await tx.destination.update({
+          where: { id: destination.id },
+          data: {
+            consecutiveFailures: nextConsecutiveFailures,
+            lastFailureAt: new Date(),
+            ...(breakerJustOpened
+              ? {
+                  status: "PAUSED",
+                  breakerOpenedAt: new Date(),
+                  pauseReason: `Automatically paused after ${PAUSE_DESTINATION_AFTER} consecutive failures.`,
+                }
+              : {}),
+          },
+        });
       });
 
-      // --- PER-DESTINATION CIRCUIT BREAKER ---
-      const updateDestination =
-        newAttemptCount >= PAUSE_DESTINATION_AFTER
-          ? prisma.destination.update({
-              where: { id: destination.id },
-              data: {
-                status: "PAUSED",
-                consecutiveFailures: newAttemptCount,
-                pauseReason: `Automatically paused after ${PAUSE_DESTINATION_AFTER} consecutive failures.`,
-                lastFailureAt: new Date(),
-              },
-            })
-          : prisma.destination.update({
-              where: { id: destination.id },
-              data: {
-                consecutiveFailures: { increment: 1 },
-                lastFailureAt: new Date(),
-              },
-            });
-
-      await prisma.$transaction([updateDelivery, updateDestination]);
+      if (breakerJustOpened) {
+        await openIncident(
+          "WARNING",
+          `Circuit breaker opened — ${host}`,
+          `Consecutive failures against ${host} passed ${PAUSE_DESTINATION_AFTER}, opening circuit breakers. Probing every ~60s.`,
+        );
+      }
 
       // --- RE-QUEUE IN BULLMQ ---
       await job.moveToDelayed(Date.now() + delayMs);

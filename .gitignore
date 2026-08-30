@@ -30,3 +30,5 @@ apps/backend/razorpay
 packages/database/.agents
 packages/database/.claude
 packages/database/.windsurf
+
+apps/backend/prisma

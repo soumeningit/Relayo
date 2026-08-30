@@ -6,6 +6,11 @@ export interface PaginationMeta {
   hasMore: boolean;
 }
 
+export interface PaginationParams {
+  page?: number;
+  pageSize?: number;
+}
+
 export interface PagedResponse<T> {
   items: T[];
   pagination: PaginationMeta;

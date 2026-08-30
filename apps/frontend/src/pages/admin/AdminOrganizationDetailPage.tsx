@@ -38,7 +38,7 @@ import { PLAN_LABELS } from "../../types/admin";
 import { formatInr } from "../../lib/format";
 import { formatDate, timeAgo } from "../../lib/time";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
-import * as adminService from "../../api/services/adminMockService";
+import * as adminService from "../../api/services/adminApi";
 
 const roleStyles: Record<string, string> = {
   OWNER: "text-indigo-500",
@@ -72,7 +72,14 @@ function AdminOrganizationDetailPage() {
       .then((result) => {
         if (cancelled) return;
         setData(result);
-        setNotes(adminService.getOrganizationNotes(id));
+        adminService
+          .getOrganizationNotes(id)
+          .then((notes) => {
+            if (cancelled) setNotes(notes);
+          })
+          .catch(() => {
+            if (cancelled) setNotes(""); 
+          });
       })
       .catch(() => {
         if (cancelled) return;

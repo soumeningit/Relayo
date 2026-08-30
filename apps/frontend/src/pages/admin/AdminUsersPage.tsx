@@ -25,12 +25,23 @@ import { DropdownMenu, MenuItem } from "../../components/ui/DropdownMenu";
 import { AdminSearchInput } from "../../components/admin/SearchInput";
 import { UserStatusBadge } from "../../components/admin/badges";
 import type { AdminUser, AdminUserStatus } from "../../types/admin";
+import { DEFAULT_PAGE_SIZE, type PaginationMeta } from "../../types/pagination";
+import { Pagination } from "../../components/dashboard/Pagination";
 import { formatDate } from "../../lib/time";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
-import * as adminService from "../../api/services/adminMockService";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import * as adminService from "../../api/services/adminApi";
 
 const mfaPill =
   "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium";
+
+const emptyPagination: PaginationMeta = {
+  page: 1,
+  pageSize: DEFAULT_PAGE_SIZE,
+  total: 0,
+  totalPages: 1,
+  hasMore: false,
+};
 
 function AdminUsersPage() {
   useDocumentMeta({
@@ -39,7 +50,12 @@ function AdminUsersPage() {
   });
 
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 350);
   const [users, setUsers] = useState<AdminUser[] | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [pagination, setPagination] =
+    useState<PaginationMeta>(emptyPagination);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [mfaConfirmId, setMfaConfirmId] = useState<string | null>(null);
 
@@ -47,10 +63,14 @@ function AdminUsersPage() {
     let cancelled = false;
 
     adminService
-      .listAdminUsers(search)
+      .listAdminUsers(debouncedSearch || undefined, { page, pageSize })
       .then((result) => {
         if (cancelled) return;
-        setUsers(result);
+        setUsers(result.items);
+        setPagination(result.pagination);
+        if (result.items.length === 0 && result.pagination.total > 0) {
+          setPage(1);
+        }
       })
       .catch((error) => {
         console.error("Error fetching users:", error);
@@ -59,7 +79,12 @@ function AdminUsersPage() {
     return () => {
       cancelled = true;
     };
-  }, [search]);
+  }, [debouncedSearch, page, pageSize]);
+
+  const handlePageSizeChange = (nextSize: number) => {
+    setPageSize(nextSize);
+    setPage(1);
+  };
 
   const patchUser = (updated: AdminUser) => {
     setUsers((prev) =>
@@ -132,7 +157,10 @@ function AdminUsersPage() {
         </div>
         <AdminSearchInput
           value={search}
-          onChange={setSearch}
+          onChange={(value) => {
+            setSearch(value);
+            setPage(1);
+          }}
           placeholder="Search name or email…"
           className="w-full sm:w-64"
         />
@@ -143,7 +171,7 @@ function AdminUsersPage() {
           <div className="flex justify-center py-20">
             <Spinner className="h-8 w-8 text-indigo-500" />
           </div>
-        ) : users.length === 0 ? (
+        ) : users.length === 0 && pagination.total === 0 ? (
           <EmptyState
             icon={<FiUsers />}
             title="No users found"
@@ -154,7 +182,8 @@ function AdminUsersPage() {
             }
           />
         ) : (
-          <TableWrapper>
+          <>
+            <TableWrapper>
             <THead>
               <TR>
                 <TH>User</TH>
@@ -299,6 +328,18 @@ function AdminUsersPage() {
               ))}
             </tbody>
           </TableWrapper>
+          {pagination.total > 0 && (
+            <Pagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              total={pagination.total}
+              totalPages={pagination.totalPages}
+              hasMore={pagination.hasMore}
+              onPageChange={setPage}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          )}
+          </>
         )}
       </div>
 

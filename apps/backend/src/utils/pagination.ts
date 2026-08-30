@@ -46,3 +46,12 @@ export function buildPagination(
     hasMore: page < totalPages,
   };
 }
+
+export function pageResponse<T>(
+  items: T[],
+  total: number,
+  page: number,
+  pageSize: number,
+): { items: T[]; pagination: PaginationMeta } {
+  return { items, pagination: buildPagination(page, pageSize, total) };
+}

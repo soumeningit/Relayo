@@ -5,6 +5,8 @@ import HowItWorksPage from "./pages/HowItWorksPage";
 import PricingPage from "./pages/PricingPage";
 import ContactPage from "./pages/ContactPage";
 import AboutPage from "./pages/AboutPage";
+import DocsListPage from "./pages/docs/DocsListPage";
+import DocsDetailPage from "./pages/docs/DocsDetailPage";
 import SignupPage from "./pages/auth/SignupPage";
 import InvitePage from "./pages/auth/InvitePage";
 import VerifyEmailPage from "./pages/auth/VerifyEmailPage";
@@ -50,6 +52,8 @@ import AdminDeliveryDetailPage from "./pages/admin/AdminDeliveryDetailPage";
 import AdminEventsPage from "./pages/admin/AdminEventsPage";
 import AdminEventDetailPage from "./pages/admin/AdminEventDetailPage";
 import AdminUsagePage from "./pages/admin/AdminUsagePage";
+import AdminDocsPage from "./pages/admin/AdminDocsPage";
+import AdminDocEditorPage from "./pages/admin/AdminDocEditorPage";
 
 function App() {
   return (
@@ -62,6 +66,8 @@ function App() {
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/about" element={<AboutPage />} />
+        <Route path="/docs" element={<DocsListPage />} />
+        <Route path="/docs/:slug" element={<DocsDetailPage />} />
       </Route>
 
       {/* Auth pages — redirect to dashboard if already signed in */}
@@ -143,7 +149,7 @@ function App() {
 
       {/* Super admin — platform owner. Login only, MFA required (mock data). */}
       <Route
-        path="/admin"
+        path="/admin/signin"
         element={
           <AdminPublicOnlyRoute>
             <AdminLoginPage />
@@ -169,10 +175,16 @@ function App() {
         <Route path="settings" element={<AdminSettingsPage />} />
         <Route path="health" element={<AdminHealthPage />} />
         <Route path="deliveries" element={<AdminDeliveriesPage />} />
-        <Route path="deliveries/:deliveryId" element={<AdminDeliveryDetailPage />} />
+        <Route
+          path="deliveries/:deliveryId"
+          element={<AdminDeliveryDetailPage />}
+        />
         <Route path="events" element={<AdminEventsPage />} />
         <Route path="events/:eventId" element={<AdminEventDetailPage />} />
         <Route path="usage" element={<AdminUsagePage />} />
+        <Route path="docs" element={<AdminDocsPage />} />
+        <Route path="docs/new" element={<AdminDocEditorPage />} />
+        <Route path="docs/:id/edit" element={<AdminDocEditorPage />} />
         <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Route>
 

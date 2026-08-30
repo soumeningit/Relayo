@@ -12,8 +12,11 @@ import eventRoute from "./routes/event";
 import eventsRoute from "./routes/events";
 import deliveryRoute from "./routes/delivery";
 import dashboardRoute from "./routes/dashboard";
+import docsRoute from "./routes/docs";
 import demoRoute from "./routes/demo";
 import webhookRoute from "./routes/webhook";
+import adminAuthRoute from "./routes/adminAuth";
+import adminRoute from "./routes/admin";
 
 import { errorHandler } from "./middlewares/errorHandler";
 import {
@@ -64,7 +67,10 @@ app.use("/api/v1/event", eventRoute);
 app.use("/api/v1/events", eventsRoute);
 app.use("/api/v1/delivery", deliveryRoute);
 app.use("/api/v1/dashboard", dashboardRoute);
+app.use("/api/v1/docs", docsRoute);
 app.use("/api/v1/demo", demoRoute);
+app.use("/api/v1/admin/auth", adminAuthRoute);
+app.use("/api/v1/admin", adminRoute);
 
 app.get("/", (_req, res) => {
   res.send("Hello, World!");

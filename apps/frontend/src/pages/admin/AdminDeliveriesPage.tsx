@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiLayers, FiSearch } from "react-icons/fi";
 import {
@@ -11,11 +11,18 @@ import {
   TableWrapper,
 } from "../../components/ui";
 import { AdminSearchInput } from "../../components/admin/SearchInput";
+import { Pagination } from "../../components/dashboard/Pagination";
 import { AdminDeliveryStatusBadge } from "../../components/admin/badges";
-import type { AdminDelivery, AdminDeliveryStatus } from "../../types/admin";
+import type {
+  AdminDelivery,
+  AdminDeliveryStatus,
+  AdminDeliverySummary,
+} from "../../types/admin";
+import { DEFAULT_PAGE_SIZE, type PaginationMeta } from "../../types/pagination";
 import { formatLatency, timeAgo } from "../../lib/time";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
-import * as opsService from "../../api/services/adminOpsService";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import * as opsService from "../../api/services/adminApi";
 
 const selectClasses =
   "h-10 rounded-xl border border-border bg-input px-3.5 text-sm text-foreground focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30";
@@ -29,6 +36,16 @@ const statusOptions: { value: AdminDeliveryStatus | "all"; label: string }[] = [
   { value: "PAUSED", label: "Paused" },
 ];
 
+const emptyPagination: PaginationMeta = {
+  page: 1,
+  pageSize: DEFAULT_PAGE_SIZE,
+  total: 0,
+  totalPages: 1,
+  hasMore: false,
+};
+
+const emptySummary: AdminDeliverySummary = { total: 0, pending: 0, failed: 0 };
+
 function AdminDeliveriesPage() {
   useDocumentMeta({
     title: "Deliveries",
@@ -39,14 +56,33 @@ function AdminDeliveriesPage() {
   const [deliveries, setDeliveries] = useState<AdminDelivery[] | null>(null);
   const [status, setStatus] = useState<AdminDeliveryStatus | "all">("all");
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 350);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [pagination, setPagination] =
+    useState<PaginationMeta>(emptyPagination);
+  const [summary, setSummary] =
+    useState<AdminDeliverySummary>(emptySummary);
 
   useEffect(() => {
     let cancelled = false;
 
     opsService
-      .listAdminDeliveries()
+      .listAdminDeliveries(
+        {
+          status: status === "all" ? undefined : status,
+          search: debouncedQuery || undefined,
+        },
+        { page, pageSize },
+      )
       .then((result) => {
-        if (!cancelled) setDeliveries(result);
+        if (cancelled) return;
+        setDeliveries(result.items);
+        setPagination(result.pagination);
+        setSummary(result.summary);
+        if (result.items.length === 0 && result.pagination.total > 0) {
+          setPage(1);
+        }
       })
       .catch((error) => {
         console.error("Error fetching deliveries:", error);
@@ -55,34 +91,12 @@ function AdminDeliveriesPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [debouncedQuery, status, page, pageSize]);
 
-  const rows = useMemo(() => {
-    const list = deliveries ?? [];
-    const q = query.trim().toLowerCase();
-    return list.filter((delivery) => {
-      if (status !== "all" && delivery.status !== status) return false;
-      if (!q) return true;
-      return (
-        delivery.organizationName.toLowerCase().includes(q) ||
-        delivery.eventType.toLowerCase().includes(q) ||
-        delivery.destinationHost.toLowerCase().includes(q) ||
-        delivery.id.toLowerCase().includes(q)
-      );
-    });
-  }, [deliveries, status, query]);
-
-  const counts = useMemo(() => {
-    const list = deliveries ?? [];
-    return {
-      total: list.length,
-      failed: list.filter(
-        (delivery) =>
-          delivery.status === "FAILED" || delivery.status === "DEAD_LETTER",
-      ).length,
-      pending: list.filter((delivery) => delivery.status === "PENDING").length,
-    };
-  }, [deliveries]);
+  const handlePageSizeChange = (nextSize: number) => {
+    setPageSize(nextSize);
+    setPage(1);
+  };
 
   return (
     <div>
@@ -98,16 +112,20 @@ function AdminDeliveriesPage() {
         <div className="flex flex-wrap items-center gap-3">
           <AdminSearchInput
             value={query}
-            onChange={setQuery}
+            onChange={(value) => {
+              setQuery(value);
+              setPage(1);
+            }}
             placeholder="Org, event, host…"
             className="w-full sm:w-64"
           />
           <select
             aria-label="Filter deliveries"
             value={status}
-            onChange={(event) =>
-              setStatus(event.target.value as AdminDeliveryStatus | "all")
-            }
+            onChange={(event) => {
+              setStatus(event.target.value as AdminDeliveryStatus | "all");
+              setPage(1);
+            }}
             className={selectClasses}
           >
             {statusOptions.map((option) => (
@@ -122,18 +140,18 @@ function AdminDeliveriesPage() {
       <div className="mt-6 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
         <span>
           <span className="font-semibold text-foreground">
-            {counts.total.toLocaleString("en-IN")}
+            {summary.total.toLocaleString("en-IN")}
           </span>{" "}
           deliveries
         </span>
         <span>
           <span className="font-semibold text-amber-500">
-            {counts.pending}
+            {summary.pending}
           </span>{" "}
           pending
         </span>
         <span>
-          <span className="font-semibold text-red-500">{counts.failed}</span>{" "}
+          <span className="font-semibold text-red-500">{summary.failed}</span>{" "}
           failed or dead-lettered
         </span>
       </div>
@@ -143,14 +161,15 @@ function AdminDeliveriesPage() {
           <div className="flex justify-center py-20">
             <Spinner className="h-8 w-8 text-indigo-500" />
           </div>
-        ) : rows.length === 0 ? (
+        ) : deliveries.length === 0 && pagination.total === 0 ? (
           <EmptyState
             icon={<FiSearch />}
             title="No deliveries match"
             description="Try a different query or status filter."
           />
         ) : (
-          <TableWrapper>
+          <>
+            <TableWrapper>
             <THead>
               <TR>
                 <TH>Delivery</TH>
@@ -164,7 +183,7 @@ function AdminDeliveriesPage() {
               </TR>
             </THead>
             <tbody>
-              {rows.map((delivery) => (
+              {deliveries.map((delivery) => (
                 <TR
                   key={delivery.id}
                   onClick={() =>
@@ -217,6 +236,18 @@ function AdminDeliveriesPage() {
               ))}
             </tbody>
           </TableWrapper>
+          {pagination.total > 0 && (
+            <Pagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              total={pagination.total}
+              totalPages={pagination.totalPages}
+              hasMore={pagination.hasMore}
+              onPageChange={setPage}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          )}
+          </>
         )}
       </div>
     </div>

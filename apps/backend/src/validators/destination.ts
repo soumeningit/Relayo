@@ -1,5 +1,26 @@
 import { z } from "zod";
 
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+// Webhook URLs are endpoints the platform POSTs payloads to, so they are
+// locked down: HTTPS is required. Plain HTTP is tolerated only for local
+// development (localhost / 127.0.0.1), e.g. a local tunnel-less ngrok-free
+// setup or a dev receiver on http://localhost:3000/hook.
+function isSecureDestinationUrl(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  if (parsed.protocol === "http:") {
+    return LOCAL_HOSTNAMES.has(parsed.hostname);
+  }
+
+  return parsed.protocol === "https:";
+}
+
 const orgIdentifierParam = z.object({
   identifier: z.string().trim().min(1).max(320),
 });
@@ -28,7 +49,11 @@ export const createDestinationSchema = z.object({
       .trim()
       .min(1, { error: "URL cannot be empty" })
       .max(2048, { error: "URL is too long" })
-      .pipe(z.url({ error: "Invalid URL format" })),
+      .pipe(z.url({ error: "Invalid URL format" }))
+      .refine(isSecureDestinationUrl, {
+        error:
+          "Destination URL must use HTTPS. Plain HTTP is only allowed for localhost/127.0.0.1 (e.g. https://hooks.example.com/webhook or http://localhost:3000/hook).",
+      }),
   }),
 });
 

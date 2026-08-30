@@ -6,7 +6,7 @@ import { AdminDeliveryStatusBadge } from "../../components/admin/badges";
 import type { AdminDelivery } from "../../types/admin";
 import { formatLatency, timeAgo } from "../../lib/time";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
-import * as opsService from "../../api/services/adminOpsService";
+import * as opsService from "../../api/services/adminApi";
 
 function AdminDeliveryDetailPage() {
   const { deliveryId } = useParams<{ deliveryId: string }>();
