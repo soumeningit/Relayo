@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { api } from "../api/axios";
+import axios from "axios";
 import { PageLoader } from "./ui";
 
 interface BackendGateProps {
@@ -7,6 +7,10 @@ interface BackendGateProps {
 }
 
 const POLL_INTERVAL_MS = 3000;
+
+const API_BASE = import.meta.env.VITE_BACKEND_BASE_URL || "";
+const SERVER_URL =
+  import.meta.env.VITE_SERVER_URL || API_BASE.replace(/\/api\/v1\/?$/, "");
 
 function BackendGate({ children }: BackendGateProps) {
   const [ready, setReady] = useState(false);
@@ -16,7 +20,7 @@ function BackendGate({ children }: BackendGateProps) {
 
     const check = async () => {
       try {
-        await api.get("/health", { timeout: 5000 });
+        await axios.get(`${SERVER_URL}/health`, { timeout: 5000 });
         if (!cancelled) setReady(true);
       } catch {
         // Backend not up yet — keep polling.
