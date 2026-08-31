@@ -474,3 +474,99 @@ export async function exportCsv(req: Request, res: Response, next: NextFunction)
     next(error);
   }
 }
+
+/* ---------- Contact inbox ---------- */
+
+export async function listContactMessages(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const data = await adminService.listContactMessages(
+      {
+        search: (req.query.search as string | undefined) ?? undefined,
+        status: (req.query.status as string | undefined) ?? undefined,
+      },
+      {
+        page: Number(req.query.page),
+        pageSize: Number(req.query.pageSize),
+      },
+    );
+    return sendSuccess(res, data, "Contact messages fetched");
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getContactMessage(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const data = await adminService.getContactMessage(req.params.id as string);
+    return sendSuccess(res, data, "Contact message fetched");
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function replyToContactMessage(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const data = await adminService.replyToContactMessage(
+      ctx(req),
+      req.params.id as string,
+      req.body.reply,
+    );
+    return sendSuccess(res, data, "Reply saved");
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function markContactRead(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const data = await adminService.markContactRead(ctx(req), req.params.id as string);
+    return sendSuccess(res, data, "Contact message marked as read");
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function archiveContactMessage(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const data = await adminService.archiveContactMessage(
+      ctx(req),
+      req.params.id as string,
+    );
+    return sendSuccess(res, data, "Contact message archived");
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteContactMessage(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    await adminService.deleteContactMessage(ctx(req), req.params.id as string);
+    return sendSuccess(res, null, "Contact message deleted");
+  } catch (error) {
+    next(error);
+  }
+}

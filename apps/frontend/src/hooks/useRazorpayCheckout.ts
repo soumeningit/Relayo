@@ -7,6 +7,51 @@ import type {
   VerifyPaymentResponse,
 } from "../types/org";
 
+const RAZORPAY_CHECKOUT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
+
+let razorpaySdkPromise: Promise<void> | null = null;
+
+function loadRazorpaySdk(): Promise<void> {
+  if (razorpaySdkPromise) return razorpaySdkPromise;
+
+  razorpaySdkPromise = new Promise<void>((resolve, reject) => {
+    if (window.Razorpay) {
+      resolve();
+      return;
+    }
+
+    const existing = document.querySelector<HTMLScriptElement>(
+      `script[src="${RAZORPAY_CHECKOUT_SRC}"]`,
+    );
+    if (existing) {
+      if (existing.dataset.loaded) {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () =>
+        reject(new Error("Razorpay failed to load.")),
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = RAZORPAY_CHECKOUT_SRC;
+    script.async = true;
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
+    script.onerror = () => {
+      script.dataset.loaded = "false";
+      reject(new Error("Razorpay failed to load."));
+    };
+    document.head.appendChild(script);
+  });
+
+  return razorpaySdkPromise;
+}
+
 type CheckoutStatus = "idle" | "ordering" | "opening" | "verifying";
 
 export type CheckoutResult =
@@ -36,6 +81,7 @@ export function useRazorpayCheckout() {
         }
 
         const { orderId, amount, currency, keyId } = submit.data.order;
+        await loadRazorpaySdk();
         const RazorpayConstructor = window.Razorpay;
 
         if (!RazorpayConstructor) {

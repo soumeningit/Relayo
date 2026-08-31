@@ -5,14 +5,17 @@ import { authenticate } from "../middlewares/auth.js";
 import { requireSuperAdmin } from "../middlewares/requireSuperAdmin.js";
 import { validate } from "../middlewares/validate.js";
 import {
+  archiveContactMessageSchema,
   changeOrganizationPlanSchema,
   exportParams,
   listAuditQuery,
+  listContactMessagesQuery,
   listDeliveriesQuery,
   listEventsQuery,
   listOrganizationsQuery,
   listPaymentsQuery,
   listUsersQuery,
+  replyContactMessageSchema,
   searchQuery,
   updateAdminProfileSchema,
   updateFeatureFlagSchema,
@@ -127,6 +130,38 @@ router.delete(
   "/docs/:id",
   validate(deleteDocParams),
   adminDocsController.deleteDoc,
+);
+
+/* ---------- Contact inbox ---------- */
+router.get(
+  "/contact-messages",
+  validate(listContactMessagesQuery),
+  adminController.listContactMessages,
+);
+router.patch(
+  "/contact-messages/:id/read",
+  validate(archiveContactMessageSchema),
+  adminController.markContactRead,
+);
+router.patch(
+  "/contact-messages/:id/archive",
+  validate(archiveContactMessageSchema),
+  adminController.archiveContactMessage,
+);
+router.delete(
+  "/contact-messages/:id",
+  validate(archiveContactMessageSchema),
+  adminController.deleteContactMessage,
+);
+router.get(
+  "/contact-messages/:id",
+  validate(archiveContactMessageSchema),
+  adminController.getContactMessage,
+);
+router.post(
+  "/contact-messages/:id/reply",
+  validate(replyContactMessageSchema),
+  adminController.replyToContactMessage,
 );
 
 export default router;

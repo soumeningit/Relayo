@@ -183,6 +183,20 @@ export interface AdminIncident {
   resolvedAt?: string;
 }
 
+export type AdminContactStatus = "NEW" | "READ" | "ARCHIVED";
+
+export interface AdminContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  status: AdminContactStatus;
+  receivedAt: string;
+  replyText: string | null;
+  repliedAt: string | null;
+  repliedByEmail: string | null;
+}
+
 export interface AdminWorkerQueue {
   name: string;
   depth: number;

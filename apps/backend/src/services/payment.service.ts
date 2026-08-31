@@ -92,7 +92,7 @@ export async function createRazorpayOrder(
       data: {
         organizationId: org.id,
         razorpayOrderId: order.id as string,
-        amount,
+        amount: amount / 100, // convert paise to rupees
         currency,
         status: PaymentStatus.CREATED,
         planType,
@@ -130,7 +130,7 @@ export async function createRazorpayOrder(
         data: {
           organizationId: org.id,
           razorpayOrderId: `failed_${Date.now()}`,
-          amount,
+          amount: amount / 100, // convert paise to rupees
           currency,
           status: PaymentStatus.FAILED,
           planType,
@@ -198,7 +198,7 @@ export async function verifyRazorpayPayment(
       paymentId: payment.id,
       attemptNumber,
       status: PaymentAttemptStatus.INITIATED,
-      amount: payment.amount,
+      amount: Number(payment.amount),
       currency: payment.currency,
       initiatedAt: new Date(),
     },
@@ -275,7 +275,7 @@ export async function verifyRazorpayPayment(
     try {
       const captured = await getRazorpay().payments.capture(
         input.razorpayPaymentId,
-        payment.amount,
+        Math.round(Number(payment.amount) * 100),
         "INR",
       );
       await recordApiCall(
@@ -523,8 +523,8 @@ async function applyCaptured(
         email: providerPayment.email ?? undefined,
         contact: providerPayment.contact ?? undefined,
         description: providerPayment.description ?? undefined,
-        amountRefunded: providerPayment.amount_refunded ?? 0,
-        amountTransferred: providerPayment.amount_transferred ?? 0,
+        amountRefunded: (providerPayment.amount_refunded ?? 0) / 100,
+        amountTransferred: (providerPayment.amount_transferred ?? 0) / 100,
         fee: providerPayment.fee ?? undefined,
         tax: providerPayment.tax ?? undefined,
         captured: true,

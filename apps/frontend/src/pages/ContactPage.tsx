@@ -13,6 +13,7 @@ import { PageHeader } from "../components/layout/MarketingLayout";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useApiCall } from "../hooks/useApiCall";
 import { validateEmail, validateName } from "../lib/validation";
+import { submitContact } from "../api/services/ContactService";
 
 const channels = [
   {
@@ -74,8 +75,7 @@ function ContactPage() {
     }
     setErrors({});
 
-    // UI-only for now — no backend endpoint yet
-    await run(() => new Promise((resolve) => setTimeout(resolve, 800)), {
+    await run(() => submitContact(form), {
       successMessage: "Message sent! We'll get back to you within 24 hours.",
     });
     setSent(true);
@@ -163,7 +163,7 @@ function ContactPage() {
                 <Input
                   label="Your name"
                   type="text"
-                  placeholder="Ada Lovelace"
+                  placeholder="John Doe"
                   autoComplete="name"
                   value={form.name}
                   onChange={setField("name")}
@@ -212,8 +212,7 @@ function ContactPage() {
                   Send message <FiSend aria-hidden="true" />
                 </Button>
                 <p className="text-center text-xs text-muted-foreground">
-                  Demo form — delivery to our inbox is wired up with the public
-                  launch.
+                  We'll only use this to reply to your enquiry.
                 </p>
               </form>
             )}

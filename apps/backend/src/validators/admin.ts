@@ -138,3 +138,39 @@ export const exportParams = z.object({
     kind: z.enum(["organizations", "users", "payments"]),
   }),
 });
+
+const contactMessageIdParams = z.object({
+  id: z
+    .string({ error: "Message id is required" })
+    .regex(/^MSG-/, { error: "Message id must reference a contact message" })
+    .min(1),
+});
+
+export const listContactMessagesQuery = z.object({
+  query: z.object({
+    search: z.string().trim().optional(),
+    status: z
+      .enum(["NEW", "READ", "ARCHIVED", ""])
+      .optional(),
+    ...pagedQuery,
+  }),
+});
+
+export const archiveContactMessageSchema = z.object({
+  params: contactMessageIdParams,
+});
+
+const contactReplyParams = z.object({
+  id: contactMessageIdParams.shape.id,
+});
+
+export const replyContactMessageSchema = z.object({
+  params: contactReplyParams,
+  body: z.object({
+    reply: z
+      .string({ error: "Reply is required" })
+      .trim()
+      .min(1, { error: "Reply cannot be empty" })
+      .max(5000, { error: "Reply is too long" }),
+  }),
+});

@@ -21,14 +21,17 @@ function BackendGate({ children }: BackendGateProps) {
     const check = async () => {
       try {
         await axios.get(`${SERVER_URL}/health`, { timeout: 5000 });
-        if (!cancelled) setReady(true);
+        if (!cancelled) {
+          setReady(true);
+          clearInterval(timer);
+        }
       } catch {
         // Backend not up yet — keep polling.
       }
     };
 
-    check();
     const timer = setInterval(check, POLL_INTERVAL_MS);
+    void check();
 
     return () => {
       cancelled = true;

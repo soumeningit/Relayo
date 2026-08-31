@@ -4,6 +4,7 @@ import type {
   AdminAuditEntry,
   AdminAuditCategory,
   AdminConfigStatus,
+  AdminContactMessage,
   AdminDelivery,
   AdminDeliveryStatus,
   AdminDeliverySummary,
@@ -473,5 +474,76 @@ export async function updateAdminDoc(
 export async function deleteAdminDoc(id: string): Promise<void> {
   await unwrap(
     adminApi.delete<Envelope<null>>(`/admin/docs/${encodeURIComponent(id)}`),
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Contact inbox                                                       */
+/* ------------------------------------------------------------------ */
+
+export async function listContactMessages(
+  filters: { search?: string; status?: string },
+  pagination?: PaginationParams,
+): Promise<PagedResponse<AdminContactMessage>> {
+  return unwrap(
+    adminApi.get<Envelope<PagedResponse<AdminContactMessage>>>(
+      `/admin/contact-messages${qs(
+        withPagination(
+          {
+            search: filters.search,
+            status: filters.status,
+          },
+          pagination,
+        ),
+      )}`,
+    ),
+  );
+}
+
+export async function markContactRead(id: string): Promise<AdminContactMessage> {
+  return unwrap(
+    adminApi.patch<Envelope<AdminContactMessage>>(
+      `/admin/contact-messages/${encodeURIComponent(id)}/read`,
+    ),
+  );
+}
+
+export async function archiveContactMessage(
+  id: string,
+): Promise<AdminContactMessage> {
+  return unwrap(
+    adminApi.patch<Envelope<AdminContactMessage>>(
+      `/admin/contact-messages/${encodeURIComponent(id)}/archive`,
+    ),
+  );
+}
+
+export async function deleteContactMessage(id: string): Promise<void> {
+  await unwrap(
+    adminApi.delete<Envelope<null>>(
+      `/admin/contact-messages/${encodeURIComponent(id)}`,
+    ),
+  );
+}
+
+export async function getContactMessage(
+  id: string,
+): Promise<AdminContactMessage> {
+  return unwrap(
+    adminApi.get<Envelope<AdminContactMessage>>(
+      `/admin/contact-messages/${encodeURIComponent(id)}`,
+    ),
+  );
+}
+
+export async function replyToContactMessage(
+  id: string,
+  reply: string,
+): Promise<AdminContactMessage> {
+  return unwrap(
+    adminApi.post<Envelope<AdminContactMessage>>(
+      `/admin/contact-messages/${encodeURIComponent(id)}/reply`,
+      { reply },
+    ),
   );
 }

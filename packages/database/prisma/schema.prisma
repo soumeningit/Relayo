@@ -26,6 +26,12 @@ enum MfaStatus {
   DISABLED
 }
 
+enum ContactStatus {
+  NEW
+  READ
+  ARCHIVED
+}
+
 model Token {
   id        BigInt   @id @default(autoincrement())
   userId    String?
@@ -421,7 +427,7 @@ model Payment {
   // Which tier this payment buys
   planType           PaymentType?
 
-  amount             Int
+  amount             Decimal   @db.Decimal(10, 2)
   currency           String @default("INR")
 
   status             PaymentStatus @default(CREATED)
@@ -435,8 +441,8 @@ model Payment {
   description        String?
 
   // Razorpay payment fields
-  amountRefunded     Int @default(0)
-  amountTransferred  Int @default(0)
+  amountRefunded     Decimal @default(0) @db.Decimal(10, 2)
+  amountTransferred  Decimal @default(0) @db.Decimal(10, 2)
 
   fee                Int?
   tax                Int?
@@ -505,7 +511,7 @@ model PaymentAttempt {
 
   razorpayPaymentId  String?
 
-  amount             Int
+  amount             Decimal   @db.Decimal(10, 2)
   currency           String
 
   method             String?
@@ -784,5 +790,21 @@ model Doc {
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   @@map("docs")
+}
+
+model ContactMessage {
+  id            BigInt        @id @default(autoincrement())
+  messageId     String        @unique @map("message_id")
+  name          String
+  email         String
+  message       String
+  status        ContactStatus @default(NEW)
+  replyText     String?       @map("reply_text")
+  repliedAt     DateTime?     @map("replied_at")
+  repliedByEmail String?      @map("replied_by_email")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@map("contact_messages")
 }
 

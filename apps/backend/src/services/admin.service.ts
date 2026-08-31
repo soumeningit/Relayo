@@ -904,3 +904,135 @@ export async function getAdminSearch(query: string) {
     payments: payments.map(mapPayment),
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Contact inbox                                                       */
+/* ------------------------------------------------------------------ */
+
+function mapContactMessage(m: {
+  messageId: string;
+  name: string;
+  email: string;
+  message: string;
+  status: "NEW" | "READ" | "ARCHIVED";
+  createdAt: Date;
+  replyText?: string | null;
+  repliedAt?: Date | null;
+  repliedByEmail?: string | null;
+}) {
+  return {
+    id: m.messageId,
+    name: m.name,
+    email: m.email,
+    message: m.message,
+    status: m.status,
+    receivedAt: m.createdAt.toISOString(),
+    replyText: m.replyText ?? null,
+    repliedAt: m.repliedAt ? m.repliedAt.toISOString() : null,
+    repliedByEmail: m.repliedByEmail ?? null,
+  };
+}
+
+export async function getContactMessage(id: string) {
+  const message = await prisma.contactMessage.findUnique({
+    where: { messageId: id },
+  });
+  if (!message) throw new AppError("Contact message not found", 404, "CONTACT_NOT_FOUND");
+  return mapContactMessage(message);
+}
+
+export async function listContactMessages(
+  filters: { search?: string; status?: string } = {},
+  pagination: PaginationQueryOptions = {},
+) {
+  const q = filters.search?.trim().toLowerCase();
+  const status =
+    filters.status && filters.status !== "all" ? filters.status : undefined;
+  const where: Prisma.ContactMessageWhereInput = {
+    ...(status && { status: status as "NEW" | "READ" | "ARCHIVED" }),
+    ...(q && {
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+        { message: { contains: q, mode: "insensitive" } },
+      ],
+    }),
+  };
+  const { page, pageSize, skip, take } = parsePaginationQuery(pagination);
+  const [items, total] = await Promise.all([
+    prisma.contactMessage.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take,
+    }),
+    prisma.contactMessage.count({ where }),
+  ]);
+  return pageResponse(items.map(mapContactMessage), total, page, pageSize);
+}
+
+export async function markContactRead(ctx: Context, id: string) {
+  const message = await prisma.contactMessage.findUnique({ where: { messageId: id } });
+  if (!message) throw new AppError("Contact message not found", 404, "CONTACT_NOT_FOUND");
+  if (message.status === "ARCHIVED") {
+    throw new AppError("Archived messages cannot be marked as read", 400, "CONTACT_ARCHIVED");
+  }
+
+  const updated = await prisma.contactMessage.update({
+    where: { messageId: id },
+    data: { status: "READ" },
+  });
+
+  await writeAdminAudit(ctx, "SYSTEM", "Contact message marked as read", message.email);
+
+  return mapContactMessage(updated);
+}
+
+export async function archiveContactMessage(ctx: Context, id: string) {
+  const message = await prisma.contactMessage.findUnique({ where: { messageId: id } });
+  if (!message) throw new AppError("Contact message not found", 404, "CONTACT_NOT_FOUND");
+  if (message.status === "ARCHIVED") {
+    throw new AppError("Contact message is already archived", 400, "CONTACT_ALREADY_ARCHIVED");
+  }
+
+  const updated = await prisma.contactMessage.update({
+    where: { messageId: id },
+    data: { status: "ARCHIVED" },
+  });
+
+  await writeAdminAudit(ctx, "SYSTEM", "Contact message archived", message.email);
+
+  return mapContactMessage(updated);
+}
+
+export async function replyToContactMessage(
+  ctx: Context,
+  id: string,
+  reply: string,
+) {
+  const message = await prisma.contactMessage.findUnique({ where: { messageId: id } });
+  if (!message) throw new AppError("Contact message not found", 404, "CONTACT_NOT_FOUND");
+
+  const updated = await prisma.contactMessage.update({
+    where: { messageId: id },
+    data: {
+      replyText: reply,
+      repliedAt: new Date(),
+      repliedByEmail: ctx.admin.email,
+      status: message.status === "ARCHIVED" ? message.status : "READ",
+    },
+  });
+
+  await writeAdminAudit(ctx, "SYSTEM", "Contact message replied", message.email);
+
+  return mapContactMessage(updated);
+}
+
+export async function deleteContactMessage(ctx: Context, id: string) {
+  const message = await prisma.contactMessage.findUnique({ where: { messageId: id } });
+  if (!message) throw new AppError("Contact message not found", 404, "CONTACT_NOT_FOUND");
+
+  await prisma.contactMessage.delete({ where: { messageId: id } });
+
+  await writeAdminAudit(ctx, "SYSTEM", "Contact message deleted", message.email);
+}

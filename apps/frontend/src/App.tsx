@@ -56,142 +56,151 @@ import AdminUsagePage from "./pages/admin/AdminUsagePage";
 import AdminDocsPage from "./pages/admin/AdminDocsPage";
 import AdminNewDocPage from "./pages/admin/AdminNewDocPage";
 import AdminDocEditorPage from "./pages/admin/AdminDocEditorPage";
+import AdminInboxPage from "./pages/admin/AdminInboxPage";
+import AdminInboxDetailPage from "./pages/admin/AdminInboxDetailPage";
+import OTPQRCodeGenerator from "./pages/admin/OTPQRCodeGenerator";
 
 function App() {
   return (
     <BackendGate>
       <Routes>
-      {/* Public marketing pages — shared navbar/footer chrome */}
-      <Route element={<MarketingLayout />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/features" element={<FeaturesPage />} />
-        <Route path="/how-it-works" element={<HowItWorksPage />} />
-        <Route path="/pricing" element={<PricingPage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/docs" element={<DocsListPage />} />
-        <Route path="/docs/:slug" element={<DocsDetailPage />} />
-      </Route>
-
-      {/* Auth pages — redirect to dashboard if already signed in */}
-      <Route
-        path="/signup"
-        element={
-          <PublicOnlyRoute>
-            <SignupPage />
-          </PublicOnlyRoute>
-        }
-      />
-      <Route
-        path="/signin"
-        element={
-          <PublicOnlyRoute>
-            <SigninPage />
-          </PublicOnlyRoute>
-        }
-      />
-      <Route
-        path="/forgot-password"
-        element={
-          <PublicOnlyRoute>
-            <ForgotPasswordPage />
-          </PublicOnlyRoute>
-        }
-      />
-
-      {/* Token links must work regardless of auth state */}
-      <Route path="/verify" element={<VerifyEmailPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/invite/:token" element={<InvitePage />} />
-
-      {/* Onboarding wizard — standalone screens, auth required (no dashboard chrome) */}
-      <Route path="/dashboard">
-        <Route element={<ProtectedRoute />}>
-          <Route path="onboarding" element={<OnboardingPage />} />
-          <Route
-            path="onboarding/:slug/pay"
-            element={<OnboardingPaymentPage />}
-          />
-          <Route
-            path="onboarding/:slug/details"
-            element={<OnboardingDetailsPage />}
-          />
+        {/* Public marketing pages — shared navbar/footer chrome */}
+        <Route element={<MarketingLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/features" element={<FeaturesPage />} />
+          <Route path="/how-it-works" element={<HowItWorksPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/docs" element={<DocsListPage />} />
+          <Route path="/docs/:slug" element={<DocsDetailPage />} />
         </Route>
 
-        {/* Protected dashboard shell */}
+        {/* Auth pages — redirect to dashboard if already signed in */}
         <Route
+          path="/signup"
           element={
-            <ProtectedRoute>
-              <DashboardLayout />
-            </ProtectedRoute>
+            <PublicOnlyRoute>
+              <SignupPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/signin"
+          element={
+            <PublicOnlyRoute>
+              <SigninPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicOnlyRoute>
+              <ForgotPasswordPage />
+            </PublicOnlyRoute>
+          }
+        />
+
+        {/* Token links must work regardless of auth state */}
+        <Route path="/verify" element={<VerifyEmailPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/invite/:token" element={<InvitePage />} />
+
+        {/* Onboarding wizard — standalone screens, auth required (no dashboard chrome) */}
+        <Route path="/dashboard">
+          <Route element={<ProtectedRoute />}>
+            <Route path="onboarding" element={<OnboardingPage />} />
+            <Route
+              path="onboarding/:slug/pay"
+              element={<OnboardingPaymentPage />}
+            />
+            <Route
+              path="onboarding/:slug/details"
+              element={<OnboardingDetailsPage />}
+            />
+          </Route>
+
+          {/* Protected dashboard shell */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<OverviewPage />} />
+            <Route element={<RequireTenant />}>
+              <Route path="destinations" element={<DestinationsPage />} />
+              <Route
+                path="destinations/:id"
+                element={<DestinationDetailPage />}
+              />
+              <Route path="events" element={<EventsPage />} />
+              <Route path="events/:id" element={<EventDetailPage />} />
+              <Route path="deliveries" element={<DeliveriesPage />} />
+              <Route
+                path="failed-deliveries"
+                element={<FailedDeliveriesPage />}
+              />
+              <Route path="organization" element={<OrganizationPage />} />
+              <Route path="members" element={<MembersPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="api-keys" element={<ApiKeysPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Route>
+        </Route>
+
+        {/* Super admin — platform owner. Login only, MFA required (mock data). */}
+        <Route
+          path="/admin/signin"
+          element={
+            <AdminPublicOnlyRoute>
+              <AdminLoginPage />
+            </AdminPublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <AdminProtectedRoute>
+              <AdminLayout />
+            </AdminProtectedRoute>
           }
         >
-          <Route index element={<OverviewPage />} />
-          <Route element={<RequireTenant />}>
-            <Route path="destinations" element={<DestinationsPage />} />
-            <Route
-              path="destinations/:id"
-              element={<DestinationDetailPage />}
-            />
-            <Route path="events" element={<EventsPage />} />
-            <Route path="events/:id" element={<EventDetailPage />} />
-            <Route path="deliveries" element={<DeliveriesPage />} />
-            <Route
-              path="failed-deliveries"
-              element={<FailedDeliveriesPage />}
-            />
-            <Route path="organization" element={<OrganizationPage />} />
-            <Route path="members" element={<MembersPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="api-keys" element={<ApiKeysPage />} />
-            <Route path="profile" element={<ProfilePage />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route index element={<AdminOverviewPage />} />
+          <Route path="organizations" element={<AdminOrganizationsPage />} />
+          <Route
+            path="organizations/:id"
+            element={<AdminOrganizationDetailPage />}
+          />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="billing" element={<AdminBillingPage />} />
+          <Route path="settings" element={<AdminSettingsPage />} />
+          <Route path="health" element={<AdminHealthPage />} />
+          <Route path="deliveries" element={<AdminDeliveriesPage />} />
+          <Route
+            path="deliveries/:deliveryId"
+            element={<AdminDeliveryDetailPage />}
+          />
+          <Route path="qr-code" element={<OTPQRCodeGenerator />} />
+          <Route path="events" element={<AdminEventsPage />} />
+          <Route path="events/:eventId" element={<AdminEventDetailPage />} />
+          <Route path="usage" element={<AdminUsagePage />} />
+          <Route path="docs" element={<AdminDocsPage />} />
+          <Route path="docs/new" element={<AdminNewDocPage />} />
+          <Route path="docs/:id/edit" element={<AdminDocEditorPage />} />
+          <Route path="inbox" element={<AdminInboxPage />} />
+          <Route path="inbox/:messageId" element={<AdminInboxDetailPage />} />
+          <Route
+            path="*"
+            element={<Navigate to="/admin/dashboard" replace />}
+          />
         </Route>
-      </Route>
 
-      {/* Super admin — platform owner. Login only, MFA required (mock data). */}
-      <Route
-        path="/admin/signin"
-        element={
-          <AdminPublicOnlyRoute>
-            <AdminLoginPage />
-          </AdminPublicOnlyRoute>
-        }
-      />
-      <Route
-        path="/admin/dashboard"
-        element={
-          <AdminProtectedRoute>
-            <AdminLayout />
-          </AdminProtectedRoute>
-        }
-      >
-        <Route index element={<AdminOverviewPage />} />
-        <Route path="organizations" element={<AdminOrganizationsPage />} />
-        <Route
-          path="organizations/:id"
-          element={<AdminOrganizationDetailPage />}
-        />
-        <Route path="users" element={<AdminUsersPage />} />
-        <Route path="billing" element={<AdminBillingPage />} />
-        <Route path="settings" element={<AdminSettingsPage />} />
-        <Route path="health" element={<AdminHealthPage />} />
-        <Route path="deliveries" element={<AdminDeliveriesPage />} />
-        <Route
-          path="deliveries/:deliveryId"
-          element={<AdminDeliveryDetailPage />}
-        />
-        <Route path="events" element={<AdminEventsPage />} />
-        <Route path="events/:eventId" element={<AdminEventDetailPage />} />
-        <Route path="usage" element={<AdminUsagePage />} />
-        <Route path="docs" element={<AdminDocsPage />} />
-        <Route path="docs/new" element={<AdminNewDocPage />} />
-        <Route path="docs/:id/edit" element={<AdminDocEditorPage />} />
-        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
-      </Route>
-
-      <Route path="*" element={<NotFound />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BackendGate>
   );
