@@ -1,16 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { FiArrowLeft, FiCalendar, FiUser, FiXCircle } from "react-icons/fi";
+import { FiArrowLeft, FiXCircle } from "react-icons/fi";
 import { buttonClasses } from "../../components/ui/buttonStyles";
 import { EmptyState, Spinner } from "../../components/ui";
+import { DocArticleView } from "../../components/docs/DocArticleView";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
 import { getApiErrorMessage } from "../../lib/apiError";
 import type { DocArticle } from "../../types/docs";
 import { getDoc } from "../../api/services/docsApi";
 
-function DocArticleView({ slug }: { slug: string }) {
+function DocDetailView({ slug }: { slug: string }) {
   const [doc, setDoc] = useState<DocArticle | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,35 +79,7 @@ function DocArticleView({ slug }: { slug: string }) {
           </div>
         ) : (
           <article>
-            <header className="mb-8 border-b border-border pb-8">
-              <h1 className="max-w-2xl font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                {doc.title}
-              </h1>
-              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
-                {doc.publishedAt && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <FiCalendar size={14} aria-hidden="true" />
-                    {new Date(doc.publishedAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </span>
-                )}
-                {doc.authorName && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <FiUser size={14} aria-hidden="true" />
-                    {doc.authorName}
-                  </span>
-                )}
-              </div>
-            </header>
-
-            <div className="doc-content text-[15px]">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {doc.content}
-              </ReactMarkdown>
-            </div>
+            <DocArticleView doc={doc} />
 
             <footer className="mt-12 border-t border-border pt-8">
               <Link
@@ -128,7 +99,7 @@ function DocArticleView({ slug }: { slug: string }) {
 
 function DocsDetailPage() {
   const { slug = "" } = useParams();
-  return <DocArticleView key={slug} slug={slug} />;
+  return <DocDetailView key={slug} slug={slug} />;
 }
 
 export default DocsDetailPage;

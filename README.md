@@ -89,7 +89,7 @@ tools/
 
 ## Getting started
 
-Prerequisites: **Node 20+**, **pnpm 8.15+**, a local **Postgres**, and a local **Redis** (Redis 6+).
+Prerequisites: **Node 22** (see `.node-version`), **pnpm 8.15+**, a local **Postgres**, and a local **Redis** (Redis 6+).
 
 ```bash
 # 1. Install workspace dependencies
@@ -126,6 +126,9 @@ pnpm --filter frontend dev
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | no* | One-time 30-day plan payments (lazy: backend boots without them) |
 | `RAZORPAY_WEBHOOK_SECRET` | no | Signature verification for the `POST /webhooks/razorpay` reconciliation endpoint |
 | `MAIL_*` / `CLOUDINARY_*` / `CLIENT_URL` / `FRONTEND_URL` | no | Email, avatars, frontend links |
+| `CORS_ORIGIN` | no | Comma-separated list of allowed browser origins (defaults to local dev) |
+| `PG_SSL_CA_CERT` | no | Inline PEM CA bundle → full DB cert verification (Aiven: paste the `ca.pem` contents) |
+| `PG_SSL_NO_VERIFY=1` | no | Fallback — encrypt DB connections without cert verification (self-signed hosts only) |
 | `RATE_LIMIT_ENABLED=false` | no | Run without throttling (baseline load tests) |
 
 ### Frontend env (see `apps/frontend/.env.example`)
@@ -304,14 +307,20 @@ The bottleneck was shared-Pg-pool starvation + an in-process worker competing wi
 
 ## Deployment on a $0 stack
 
-The whole system runs free-tier: **Vercel** (frontend) → **Render** (API web service) → **Supabase** (Postgres) + **Upstash** (Redis, BullMQ, rate limiter).
+The whole system runs free-tier: **Vercel** (frontend) → **Render** (API web service + database) → **Postgres** + **Redis/Valkey** (BullMQ, rate limiter).
+
+A one-shot **Render Blueprint** ships in [`render.yaml`](render.yaml): it provisions a Postgres database, a Valkey (Redis) database, a `relayo-api` web service, and a `relayo-migrate` job. Import it from the Render dashboard (New → Blueprint) and then fill in the secrets marked `sync: false` (`CORS_ORIGIN`, `FRONTEND_URL`, `CLIENT_URL`, `JWT_SECRET`, `ENCRYPTION_KEY`, `RAZORPAY_*`, `CLOUDINARY_*`, `MAIL_*`).
 
 Key facts to know first:
 
-- **Render free** has no background-worker service type. Set `RUN_WORKERS=true` in the single web service so the API process also boots the delivery + rate-limiter workers.
+- **Workers**: free web services have no separate worker type, so the API process boots the delivery + rate-limiter workers itself as a child process. `RUN_WORKERS` controls it (`1`/`true` always on, `0`/`false` always off, unset → on in production, off in dev).
+- **Managed Redis is TLS-only** → `REDIS_TLS=1` enables an encrypted connection for the rate limiter, BullMQ and the secret cache.
+- **CORS**: in production set `CORS_ORIGIN` to the frontend origin(s), comma-separated (e.g. `https://app.relayo.dev`). Falls back to `localhost:5173/5174` in dev.
 - Free web services **spin down after 15 minutes idle** (≈1 min cold start). A free monitor (e.g. UptimeRobot) hitting `/health` every 5 min keeps it warm.
-- **Upstash Redis is TLS-only** → set `REDIS_TLS=true`; free tier caps at 500K commands/mo — BullMQ and the limiter consume it, so watch the dashboard.
-- **Supabase** needs `sslmode=require` in `DATABASE_URL` and pauses after 7 idle days (re-enable from the dashboard).
+- Render **Postgres** and starter **Valkey** count toward free-hours caps; watch the dashboard.
+- Supabase/Upstash also work: set `sslmode=require` in `DATABASE_URL` and `REDIS_TLS=true`.
+
+Frontend: deploy `apps/frontend` to **Vercel** (`vercel.json` ships an SPA rewrite), with `VITE_BACKEND_BASE_URL` set to the Render API URL.
 
 Build (`prisma generate` is required — the generated client is gitignored):
 

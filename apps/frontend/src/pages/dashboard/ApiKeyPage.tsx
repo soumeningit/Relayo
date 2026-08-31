@@ -15,11 +15,13 @@ import {
   TR,
 } from "../../components/ui";
 import { timeAgo } from "../../lib/time";
+import { isMfaRequired } from "../../lib/apiError";
 import CreateKeyModal from "../../components/apikey/CreateKeyModal";
 import type { ApiKey } from "../../types/apiKey";
 import RotateKeyModal from "../../components/apikey/RotateKeyModal";
 import RevokeKeyModal from "../../components/apikey/RevokeKeyModal";
 import SecretRevelModal from "../../components/apikey/SecretRevelModal";
+import MfaSetupModal from "../../components/apikey/MfaSetupModal";
 
 export default function ApiKeys() {
   const { tenant } = useTenant();
@@ -31,6 +33,10 @@ export default function ApiKeys() {
   const [revealOpen, setRevealOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [rotateOpen, setRotateOpen] = useState(false);
+  const [mfaOpen, setMfaOpen] = useState(false);
+  const [pendingMfaAction, setPendingMfaAction] = useState<
+    "create" | "rotate" | "revoke" | null
+  >(null);
 
   // Form state
   const [selectedKey, setSelectedKey] = useState<ApiKey | null>(null);
@@ -45,7 +51,7 @@ export default function ApiKeys() {
     try {
       const data = await apiKeyService.listApiKeys(tenant.id);
       setKeys(data);
-    } catch (error) {
+    } catch {
       toast.error("Failed to load API keys");
     } finally {
       setIsLoading(false);
@@ -53,7 +59,25 @@ export default function ApiKeys() {
   };
 
   useEffect(() => {
-    fetchKeys();
+    if (!tenant) return;
+    let cancelled = false;
+
+    apiKeyService
+      .listApiKeys(tenant.id)
+      .then((data) => {
+        if (cancelled) return;
+        setKeys(data);
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Failed to load API keys");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [tenant]);
 
   const resetOtpState = () => {
@@ -66,8 +90,16 @@ export default function ApiKeys() {
   const handleCreate = async () => {
     if (!tenant || !newKeyName.trim()) return;
 
-    const result = await run(() =>
-      apiKeyService.createApiKey(tenant.id, { name: newKeyName.trim() }),
+    const result = await run(
+      () => apiKeyService.createApiKey(tenant.id, { name: newKeyName.trim() }),
+      {
+        onError: (error) => {
+          if (!isMfaRequired(error)) return;
+          setCreateOpen(false);
+          setPendingMfaAction("create");
+          setMfaOpen(true);
+        },
+      },
     );
     if (!result) return;
 
@@ -83,8 +115,15 @@ export default function ApiKeys() {
   const handleRotate = async () => {
     if (!tenant || !selectedKey || !otp.trim()) return;
 
-    const result = await run(() =>
-      apiKeyService.rotateApiKey(tenant.id, selectedKey.id, otp.trim()),
+    const result = await run(
+      () => apiKeyService.rotateApiKey(tenant.id, selectedKey.id, otp.trim()),
+      {
+        onError: (error) => {
+          if (!isMfaRequired(error)) return;
+          setPendingMfaAction("rotate");
+          setMfaOpen(true);
+        },
+      },
     );
     if (!result) return;
 
@@ -100,14 +139,35 @@ export default function ApiKeys() {
   const handleRevoke = async () => {
     if (!tenant || !selectedKey || !otp.trim()) return;
 
-    await run(() =>
-      apiKeyService.revokeApiKey(tenant.id, selectedKey.id, otp.trim()),
+    const result = await run(
+      () => apiKeyService.revokeApiKey(tenant.id, selectedKey.id, otp.trim()),
+      {
+        onError: (error) => {
+          if (!isMfaRequired(error)) return;
+          setPendingMfaAction("revoke");
+          setMfaOpen(true);
+        },
+      },
     );
-    if (!selectedKey) return; // run() returns void for revoke, so we check differently or just rely on try/catch inside run
+    if (result === null) return;
 
     setRevokeOpen(false);
     resetOtpState();
     toast.success("API Key revoked");
+    fetchKeys();
+  };
+
+  const handleMfaSetupComplete = () => {
+    if (pendingMfaAction === "create") {
+      handleCreate();
+    } else if (pendingMfaAction === "rotate") {
+      setOtp("");
+      toast.info("MFA enabled — enter a fresh code to rotate your key");
+    } else if (pendingMfaAction === "revoke") {
+      setOtp("");
+      toast.info("MFA enabled — enter a fresh code to revoke your key");
+    }
+    setPendingMfaAction(null);
     fetchKeys();
   };
 
@@ -247,6 +307,13 @@ export default function ApiKeys() {
         revealOpen={revealOpen}
         setRevealOpen={setRevealOpen}
         newPlaintextKey={newPlaintextKey}
+      />
+
+      <MfaSetupModal
+        open={mfaOpen}
+        setOpen={setMfaOpen}
+        orgId={tenant?.id ?? ""}
+        onSetupComplete={handleMfaSetupComplete}
       />
     </div>
   );

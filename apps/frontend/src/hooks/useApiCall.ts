@@ -5,6 +5,7 @@ import { getApiErrorMessage } from "../lib/apiError";
 interface RunOptions<T> {
   successMessage?: string;
   onSuccess?: (data: T) => void;
+  onError?: (error: unknown) => void;
   showErrorToast?: boolean;
 }
 
@@ -23,6 +24,7 @@ export function useApiCall() {
         options.onSuccess?.(data);
         return data;
       } catch (error) {
+        options.onError?.(error);
         if (options.showErrorToast !== false) {
           toast.error(getApiErrorMessage(error));
         }

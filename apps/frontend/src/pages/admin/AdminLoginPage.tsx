@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiArrowRight, FiKey, FiShield } from "react-icons/fi";
+import { FiArrowRight, FiKey } from "react-icons/fi";
 import { toast } from "sonner";
 import { AuthLayout } from "../../components/layout/AuthLayout";
 import { Button } from "../../components/ui/Button";
@@ -11,8 +11,6 @@ import { useDocumentMeta } from "../../hooks/useDocumentMeta";
 import { useApiCall } from "../../hooks/useApiCall";
 import { useAdmin } from "../../contexts/AdminContext";
 import {
-  ADMIN_DEMO_EMAIL,
-  ADMIN_DEMO_PASSWORD,
   adminLogin,
   adminResendMfaCode,
   adminVerifyMfa,
@@ -171,21 +169,6 @@ function AdminLoginPage() {
       title="Relayo Admin"
       subtitle="Restricted access — platform administration. Multi-factor authentication is mandatory."
     >
-      <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-3.5 py-3 text-xs leading-relaxed text-muted-foreground">
-        <FiShield className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" aria-hidden="true" />
-        <span>
-          Demo credentials — email{" "}
-          <span className="font-mono font-semibold text-foreground">
-            {ADMIN_DEMO_EMAIL}
-          </span>{" "}
-          with password{" "}
-          <span className="font-mono font-semibold text-foreground">
-            {ADMIN_DEMO_PASSWORD}
-          </span>
-          .
-        </span>
-      </div>
-
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <Input
           label="Email"

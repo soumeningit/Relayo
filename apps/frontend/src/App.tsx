@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import BackendGate from "./components/BackendGate";
 import Home from "./pages/Home";
 import FeaturesPage from "./pages/FeaturesPage";
 import HowItWorksPage from "./pages/HowItWorksPage";
@@ -53,11 +54,13 @@ import AdminEventsPage from "./pages/admin/AdminEventsPage";
 import AdminEventDetailPage from "./pages/admin/AdminEventDetailPage";
 import AdminUsagePage from "./pages/admin/AdminUsagePage";
 import AdminDocsPage from "./pages/admin/AdminDocsPage";
+import AdminNewDocPage from "./pages/admin/AdminNewDocPage";
 import AdminDocEditorPage from "./pages/admin/AdminDocEditorPage";
 
 function App() {
   return (
-    <Routes>
+    <BackendGate>
+      <Routes>
       {/* Public marketing pages — shared navbar/footer chrome */}
       <Route element={<MarketingLayout />}>
         <Route path="/" element={<Home />} />
@@ -183,13 +186,14 @@ function App() {
         <Route path="events/:eventId" element={<AdminEventDetailPage />} />
         <Route path="usage" element={<AdminUsagePage />} />
         <Route path="docs" element={<AdminDocsPage />} />
-        <Route path="docs/new" element={<AdminDocEditorPage />} />
+        <Route path="docs/new" element={<AdminNewDocPage />} />
         <Route path="docs/:id/edit" element={<AdminDocEditorPage />} />
         <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
-    </Routes>
+      </Routes>
+    </BackendGate>
   );
 }
 

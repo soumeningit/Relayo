@@ -31,11 +31,27 @@ const app = express();
 
 const PORT = process.env.PORT || 5000;
 const IS_PROD = process.env.NODE_ENV === "production";
-// Set RATE_LIMIT_ENABLED=false to run the API WITHOUT any rate limiting
-// (useful for measuring the unthrottled baseline before applying limits).
 const RATE_LIMIT_ENABLED = process.env.RATE_LIMIT_ENABLED !== "false";
 
-const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
+const DEFAULT_CORS_ORIGINS = ["http://localhost:5173", "http://localhost:5174"];
+const configuredOrigins = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins =
+  configuredOrigins.length > 0 ? configuredOrigins : DEFAULT_CORS_ORIGINS;
+
+// Background workers boot control:
+//   1/true  → boot the delivery worker in-process
+//   0/false → never boot it
+//   unset   → boot in production, skip in dev (dev uses `pnpm dev:all`)
+const RUN_WORKERS = process.env.RUN_WORKERS;
+function shouldBootWorkers(): boolean {
+  if (RUN_WORKERS !== undefined && RUN_WORKERS !== "") {
+    return RUN_WORKERS === "1" || RUN_WORKERS.toLowerCase() === "true";
+  }
+  return IS_PROD;
+}
 
 // Webhooks need the raw request body for HMAC verification, so they are
 // mounted BEFORE the global express.json() parser.
@@ -92,45 +108,71 @@ app.use(errorHandler);
 app.set("rateLimiterActive", false);
 
 // Startup with Redis (smart mode):
-//   production → fail fast, exit if Redis is unreachable
+//   production → retry a few times, then run in degraded mode (rate limiting
+//                off) rather than crash-looping. Valkey on Render needs a
+//                moment to warm up after the service starts.
 //   otherwise  → warn and run without rate limiting (fail-open middleware)
+let deliveryWorker: { close: () => Promise<void> } | null = null;
+
 async function start() {
-  try {
-    await connectRedis({
-      host: process.env.REDIS_HOST || "localhost",
-      port: parseInt(process.env.REDIS_PORT || "6379"),
-      password: process.env.REDIS_PASSWORD || undefined,
-    });
-    if (RATE_LIMIT_ENABLED) {
-      app.set("rateLimiterActive", true);
-      console.log("[startup] Redis connected — rate limiting active");
-    } else {
-      app.set("rateLimiterActive", false);
-      console.log(
-        "[startup] RATE_LIMIT_ENABLED=false — request throttling is OFF",
+  const MAX_REDIS_RETRIES = 3;
+  const REDIS_RETRY_DELAY_MS = 3000;
+  let redisConnected = false;
+
+  for (let attempt = 1; attempt <= MAX_REDIS_RETRIES; attempt++) {
+    try {
+      await connectRedis({
+        host: process.env.REDIS_HOST || "localhost",
+        port: parseInt(process.env.REDIS_PORT || "6379"),
+        password: process.env.REDIS_PASSWORD || undefined,
+      });
+      redisConnected = true;
+      break;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `[startup] Redis attempt ${attempt}/${MAX_REDIS_RETRIES} failed: ${message}`,
       );
+      if (attempt < MAX_REDIS_RETRIES) {
+        await new Promise((r) => setTimeout(r, REDIS_RETRY_DELAY_MS));
+      }
     }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (IS_PROD) {
-      console.error(
-        `[startup] FATAL: Redis unavailable in production (${message}). Exiting.`,
-      );
-      process.exit(1);
-    }
+  }
+
+  if (redisConnected && RATE_LIMIT_ENABLED) {
+    app.set("rateLimiterActive", true);
+    console.log("[startup] Redis connected — rate limiting active");
+  } else if (redisConnected) {
+    app.set("rateLimiterActive", false);
+    console.log(
+      "[startup] RATE_LIMIT_ENABLED=false — request throttling is OFF",
+    );
+  } else {
+    app.set("rateLimiterActive", false);
     console.warn(
-      `[startup] WARNING: Redis unavailable (${message}) — starting WITHOUT rate limiting. It will resume automatically once Redis is reachable.`,
+      "[startup] Redis unavailable after retries — running WITHOUT rate limiting (degraded mode)",
     );
   }
 
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
+
+  if (shouldBootWorkers()) {
+    const { deliveryWorker: worker } = await import("./workers/deliveryWorker");
+    deliveryWorker = worker;
+    console.log("[startup] Delivery worker active (in-process)");
+  } else {
+    console.log(
+      `[startup] Delivery worker NOT booting (RUN_WORKERS=${RUN_WORKERS || "unset"}, NODE_ENV=${process.env.NODE_ENV || "unset"})`,
+    );
+  }
 }
 
 // Graceful shutdown
 async function shutdown() {
   try {
+    await deliveryWorker?.close();
     await closeQueues();
     await disconnectRedis();
   } catch (error) {

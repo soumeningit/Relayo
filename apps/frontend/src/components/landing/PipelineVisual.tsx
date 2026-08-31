@@ -5,7 +5,7 @@ import { FiCheck } from "react-icons/fi";
 const stages = [
   {
     title: "POST /events",
-    detail: '{ "event_type": "order.shipped", … }',
+    detail: '{ "eventType": "order.shipped", … }',
     tag: "idempotent",
   },
   {
@@ -38,7 +38,7 @@ export function PipelineVisual() {
 
   return (
     <div className="relative mx-auto w-full max-w-md">
-      <div className="absolute -inset-8 rounded-[2rem] bg-gradient-to-br from-indigo-500/15 via-violet-500/10 to-cyan-400/10 blur-2xl" />
+      <div className="absolute -inset-8 rounded-4xl bg-linear-to-br from-indigo-500/15 via-violet-500/10 to-cyan-400/10 blur-2xl" />
       <div className="relative rounded-2xl border border-border bg-card/90 p-5 shadow-2xl shadow-indigo-950/20 backdrop-blur sm:p-6">
         <div className="mb-5 flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-red-400/80" />
@@ -72,7 +72,7 @@ export function PipelineVisual() {
                 <span
                   className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg text-sm font-semibold ${
                     isDone || isActive
-                      ? "bg-gradient-to-br from-indigo-500 to-violet-500 text-white"
+                      ? "bg-linear-to-br from-indigo-500 to-violet-500 text-white"
                       : "bg-muted text-muted-foreground"
                   }`}
                   aria-hidden="true"

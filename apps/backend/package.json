@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon",
+    "start": "tsx src/index.ts",
     "db:seed:admin": "tsx prisma/seed-admin.ts",
     "dev:delivery": "tsx watch src/workers/deliveryWorker.ts",
     "dev:workers": "tsx watch src/workers.ts",

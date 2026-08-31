@@ -223,20 +223,35 @@ async function enableMfaForUser(userId: string) {
     throw new Error("User not found");
   }
 
-  const mfaSecret = generateMfaSecret();
-
-  const encryptedMfaSecret = encrypt(mfaSecret);
-
-  const mfaDetails = await prisma.userMfa.create({
-    data: {
-      userId: user.id,
-      secret: encryptedMfaSecret,
-      status: "PENDING",
-    },
+  const existing = await prisma.userMfa.findUnique({
+    where: { userId: user.id },
   });
 
-  if (!mfaDetails) {
-    throw new Error("Failed to create MFA details");
+  let mfaSecret: string;
+
+  if (existing && existing.status === MfaStatus.ENABLED) {
+    throw new AppError(
+      "MFA is already enabled for this user",
+      400,
+      "MFA_ALREADY_ENABLED",
+    );
+  }
+
+  if (existing && existing.status === MfaStatus.PENDING) {
+    mfaSecret = decrypt(existing.secret as string);
+  } else {
+    mfaSecret = generateMfaSecret();
+    const mfaDetails = await prisma.userMfa.create({
+      data: {
+        userId: user.id,
+        secret: encrypt(mfaSecret),
+        status: MfaStatus.PENDING,
+      },
+    });
+
+    if (!mfaDetails) {
+      throw new Error("Failed to create MFA details");
+    }
   }
 
   const otpauthUri = generateMfaUri(user.email, mfaSecret);

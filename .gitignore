@@ -32,3 +32,9 @@ packages/database/.claude
 packages/database/.windsurf
 
 apps/backend/prisma
+
+blog.md
+
+tmp/
+
+render.yaml

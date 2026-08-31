@@ -3,6 +3,21 @@ import { AxiosError } from "axios";
 interface ApiErrorBody {
   message?: string;
   error?: string;
+  code?: string;
+}
+
+export function getApiErrorCode(error: unknown): string | null {
+  if (error instanceof AxiosError) {
+    const body = error.response?.data as ApiErrorBody | string | undefined;
+    if (body && typeof body === "object" && typeof body.code === "string") {
+      return body.code;
+    }
+  }
+  return null;
+}
+
+export function isMfaRequired(error: unknown): boolean {
+  return getApiErrorCode(error) === "MFA_REQUIRED";
 }
 
 export function getApiErrorMessage(error: unknown): string {
