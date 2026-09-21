@@ -22,3 +22,18 @@ export interface AddressInput {
 }
 
 export type UpdateProfileType = "avatar" | "profile" | "address";
+
+export interface CreateUserReequest {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  mfaEnabled?: boolean;
+  registrationToken?: string;
+}
+
+export interface ResetRequest {
+  token: string;
+  password: string;
+  mfaOtp?: string;
+}

@@ -20,21 +20,7 @@ import {
   verifyJwtToken,
 } from "../utils/helper";
 import { AppError } from "../errors/AppError";
-
-interface CreateUserReequest {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-  mfaEnabled?: boolean;
-  registrationToken?: string;
-}
-
-interface ResetRequest {
-  token: string;
-  password: string;
-  mfaOtp?: string;
-}
+import { CreateUserReequest, ResetRequest } from "../type";
 
 async function createUser(request: CreateUserReequest) {
   if (request.password.trim() !== request.confirmPassword.trim()) {
@@ -75,7 +61,7 @@ async function createUser(request: CreateUserReequest) {
     }
 
     if (conditions.length === 0) {
-      throw new Error("Either userEmail or userId is required");
+      throw new Error("Either User Email or User Id is required");
     }
 
     if (!verificationRequired) {
@@ -414,6 +400,10 @@ async function loginUser(email: string, password: string) {
     },
   });
 
+  if (user?.role === "SUPER_ADMIN") {
+    throw new Error("Admin login is not allowed");
+  }
+
   if (!user) {
     throw new Error("User does not exist");
   }
@@ -550,7 +540,7 @@ async function sendResetLink(email: string) {
   }
 
   const resetToken = generateJwtToken(
-    { userId: user.id, email: user.email },
+    { userId: user.userId, email: user.email },
     "1h",
   );
 
@@ -594,7 +584,7 @@ async function resetPassword(request: ResetRequest) {
   const hashedPassword = await bcrypt.hash(request.password, 12);
 
   const user = await prisma.user.findFirst({
-    where: { id: Number(userId), email: payload.email },
+    where: { userId: userId, email: payload.email },
   });
 
   if (!user) {

@@ -26,6 +26,49 @@ function isRetryableServiceUnavailable(err: unknown): boolean {
   return /timeout expired|timed out|too many clients/i.test(message);
 }
 
+// Errors originating below the application layer (Prisma, pg driver, JWT payload
+// serialization, ...). Their messages can leak table/column names, SQL fragments or
+// internal stack details, so they must never be echoed back to the client — only the
+// safe error handler must translate them.
+function isDatabaseOrInternalError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+
+  const record = err as unknown as Record<string, unknown>;
+  const name = err.constructor?.name ?? "";
+  const code = typeof record.code === "string" ? record.code : "";
+  const message = err.message;
+
+  // Prisma client errors (KnownRequest/UnknownRequest/Validation/RustPanic/
+  // Initialization and engine translation errors) expose clientVersion, meta or a
+  // P<code4> error code.
+  if (name.includes("Prisma") || record.clientVersion !== undefined) {
+    return true;
+  }
+  if (/^P\d{4}$/.test(code)) return true;
+  if (record.meta !== undefined && typeof record.meta === "object") {
+    return true;
+  }
+
+  // Raw node-postgres errors carry SQLSTATE code + PG diagnostic fields (routine,
+  // detail, hint, table, constraint); their messages may embed schema/SQL internals.
+  if (/^[A-Z0-9]{5}$/.test(code) && /^[0-9]/.test(code)) return true;
+  if (
+    typeof record.routine === "string" ||
+    typeof record.detail === "string" ||
+    typeof record.constraint === "string"
+  ) {
+    return true;
+  }
+
+  // Internal (de)serialization failures, e.g. jsonwebtoken JSON.stringify on a Prisma
+  // BigInt ([BigInt64Array] values are not JSON-serializable).
+  if (/serialize a BigInt|Converting circular structure to JSON/i.test(message)) {
+    return true;
+  }
+
+  return false;
+}
+
 export const errorHandler = (
   err: unknown,
   req: Request,
@@ -50,6 +93,14 @@ export const errorHandler = (
       message: "Service temporarily unavailable. Please retry.",
       code: (err as { code?: string })?.code,
       retryAfter: RETRYABLE_RETRY_AFTER_SECONDS,
+    });
+  }
+
+  if (isDatabaseOrInternalError(err)) {
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error.",
+      message: "Internal server error.",
     });
   }
 

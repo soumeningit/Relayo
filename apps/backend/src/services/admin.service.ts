@@ -477,7 +477,7 @@ export async function resetUserPassword(ctx: Context, id: string) {
   }
 
   const resetToken = generateJwtToken(
-    { userId: user.id, email: user.email },
+    { userId: Number(user.id), email: user.email },
     "1h",
   );
   const resetURL = `${baseURL}/reset-password?token=${resetToken}`;

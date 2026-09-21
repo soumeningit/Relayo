@@ -42,6 +42,16 @@ function OverviewPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [recent, setRecent] = useState<DeliveryRow[]>([]);
 
+  const getHost = (url?: string) => {
+    if (!url) return "-";
+
+    try {
+      return new URL(url).host;
+    } catch {
+      return "-";
+    }
+  };
+
   useEffect(() => {
     if (!tenant) return;
     let cancelled = false;
@@ -50,6 +60,9 @@ function OverviewPage() {
       .getOverview(tenant.id)
       .then((data) => {
         if (cancelled) return;
+
+        console.log(data);
+
         setStats(data.stats);
         setDestinations(data.destinations);
         setRecent(data.recent.slice(0, 8));
@@ -150,10 +163,10 @@ function OverviewPage() {
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium text-foreground">
-                        {new URL(destination.url).host}
+                        {getHost(destination?.url)}
                       </span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {destination.url}
+                        {destination?.url || "-"}
                       </span>
                     </span>
                     <DestinationStatusBadge status={destination.status} />

@@ -61,7 +61,7 @@ function SigninPage() {
     }
     setErrors({});
 
-    const response = await run(() => loginUser(form), { showErrorToast: false });
+    const response = await run(() => loginUser(form), { showErrorToast: true });
     if (!response) return;
 
     if (response.mfaVerificationRequired) {

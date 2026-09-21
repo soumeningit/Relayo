@@ -6,7 +6,7 @@ import { verifyMfaOtp } from "../utils/otp.util";
 import { AppError } from "../errors/AppError";
 
 export interface AdminIdentity {
-  id: number;
+  id?: number;
   userId: string;
   email: string;
   name: string;
@@ -21,11 +21,7 @@ export async function loginAdmin(
   });
 
   if (!admin) {
-    throw new AppError(
-      "Admin not found",
-      401,
-      "ADMIN_NOT_FOUND",
-    );
+    throw new AppError("Admin not found", 401, "ADMIN_NOT_FOUND");
   }
 
   const isMatch = await bcrypt.compare(password, admin.password as string);
@@ -108,7 +104,6 @@ export async function verifyMfaToken(
     message: "MFA verification successful",
     accessToken,
     user: {
-      id: Number(user.id),
       userId: user.userId,
       email: user.email,
       name: user.name,
